@@ -459,7 +459,7 @@ export default function RegistrasiImunisasiPage() {
                     <td className="px-6 py-4">{item.nama_imunisasi}</td>
                     <td className="px-6 py-4">{formatTanggal(item.tanggal_imunisasi)}</td>
                     <td className="px-6 py-4">{item.nama_kader || 'N/A'}</td>
-                    <td className="px-6 py-4">{item.nama_kader_updater || '-'}</td> {/* [BARU] */}
+                    <td className="px-6 py-4">{item.nama_kader_updater || '-'}</td>
                     <td className="px-6 py-4 max-w-xs truncate" title={item.catatan || ''}>{item.catatan || '-'}</td>
                     <td className="px-6 py-4 flex space-x-2">
                       <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(item)} className="cursor-pointer">

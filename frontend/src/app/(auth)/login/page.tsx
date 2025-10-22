@@ -34,18 +34,15 @@ export default function LoginPage() {
         // --- INI BAGIAN PENTING YANG HILANG ---
         // Pastikan Anda menyimpan token ke localStorage
         // dengan kunci "authToken"
-        if (data.token && data.user) { // Pastikan 'data.user' juga ada
-            localStorage.setItem('authToken', data.token);
-            
-            // --- TAMBAHKAN BARIS INI ---
-            localStorage.setItem('kaderUser', JSON.stringify(data.user)); 
-            // --------------------------
+       if (data.token && data.user && data.user.id && data.user.nama_lengkap) {
+        // Panggil fungsi login dari context
+        login(data.user.id, data.token, data.user.nama_lengkap); 
 
-            // Arahkan ke halaman dashboard atau halaman utama
-            window.location.href = '/dashboard'; // atau halaman lain
-        } else {
-            throw new Error("Token atau data user tidak diterima dari server.");
-        }
+        // Gunakan router Next.js untuk navigasi (lebih baik dari window.location)
+        router.push('/dashboard'); // Pastikan router sudah diinisialisasi: const router = useRouter();
+      } else {
+        throw new Error("Token atau data user tidak lengkap dari server.");
+      }
         // --- BATAS BAGIAN PENTING ---
 
     } catch (err: any) {
