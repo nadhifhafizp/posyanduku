@@ -265,35 +265,42 @@ export default function RegistrasiImunisasiPage() {
   };
 
   const handleUpdateSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!editingRiwayat) return;
-    setIsLoading(true);
-    setError(''); 
+  event.preventDefault();
+  if (!editingRiwayat) return;
+  setIsLoading(true);
+  setError('');
 
     const payload = {
       ...editFormData,
       id_anak: parseInt(editFormData.id_anak, 10),
       id_master_imunisasi: parseInt(editFormData.id_master_imunisasi, 10),
+      tanggal_imunisasi: editFormData.tanggal_imunisasi,
       catatan: editFormData.catatan || null,
       // [DIHAPUS] id_kader_updater (diambil dari token di backend)
     };
 
-    try {
-      const response = await fetchWithAuth(`${API_URL}/${editingRiwayat.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data.');
-      
-      setSuccess('Data riwayat imunisasi berhasil diperbarui!'); 
-      setIsEditModalOpen(false);
-      fetchRiwayatImunisasi(searchQuery); 
-    } catch (err: any) {
-      setError(err.message); 
-    } finally {
-      setIsLoading(false);
+    if (isNaN(payload.id_anak) || isNaN(payload.id_master_imunisasi) || !payload.tanggal_imunisasi) {
+    setError("Data tidak lengkap. Pastikan tanggal imunisasi terisi.");
+    setIsLoading(false);
+    return;
     }
+
+    try {
+    const response = await fetchWithAuth(`${API_URL}/${editingRiwayat.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data.');
+
+    setSuccess('Data riwayat imunisasi berhasil diperbarui!'); 
+    setIsEditModalOpen(false);
+    fetchRiwayatImunisasi(searchQuery); 
+  } catch (err: any) {
+    setError(err.message); 
+  } finally {
+    setIsLoading(false);
+  }
   };
 
   // --- Fungsi Delete Data ---
