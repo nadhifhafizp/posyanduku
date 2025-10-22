@@ -466,7 +466,7 @@ export default function RegistrasiImunisasiPage() {
                     <td className="px-6 py-4">{item.nama_imunisasi}</td>
                     <td className="px-6 py-4">{formatTanggal(item.tanggal_imunisasi)}</td>
                     <td className="px-6 py-4">{item.nama_kader || 'N/A'}</td>
-                    <td className="px-6 py-4">{item.nama_kader_updater || '-'}</td>
+                    <td className="px-6 py-4">{formatTanggal(item.updated_at)}</td>
                     <td className="px-6 py-4 max-w-xs truncate" title={item.catatan || ''}>{item.catatan || '-'}</td>
                     <td className="px-6 py-4 flex space-x-2">
                       <Button variant="outline" size="sm" onClick={() => handleOpenEditModal(item)} className="cursor-pointer">
@@ -490,13 +490,13 @@ export default function RegistrasiImunisasiPage() {
 
       {/* --- Modal Update Riwayat --- */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Edit Riwayat Imunisasi</DialogTitle>
-            <DialogDescription>
-              Perbarui data riwayat imunisasi di bawah ini.
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="sm:max-w-[425px]"> {/* Disesuaikan agar tidak terlalu lebar */}
+        <DialogHeader>
+          <DialogTitle>Edit Tanggal Imunisasi</DialogTitle> {/* Judul disesuaikan */}
+          <DialogDescription>
+            Ubah tanggal pemberian imunisasi di bawah ini.
+          </DialogDescription>
+        </DialogHeader>
           <form onSubmit={handleUpdateSubmit} className="space-y-4 py-4">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
