@@ -1,17 +1,19 @@
-// src/app/dashboard/data-perkembangan/page.tsx
+// src/app/(main)/perkembangan/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation'; // <-- 1. Import useRouter
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea"; // <-- Dibutuhkan untuk Saran
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Trash2, Search } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useFetchWithAuth } from '@/lib/utils'; // <-- 2. Import useFetchWithAuth
 
 // Interface AnakSimple (minimal untuk dropdown)
 interface AnakOption {
@@ -22,39 +24,38 @@ interface AnakOption {
 
 // Interface Perkembangan (sesuai struct Go + join fields)
 interface Perkembangan {
-  id: number;
-  id_anak: number;
-  tanggal_pemeriksaan: string;
-  bb_kg: number | null;
-  tb_cm: number | null;
-  lk_cm: number | null;
-  ll_cm: number | null;
-  status_gizi: string | null;
-  saran: string | null;
-  id_kader_pencatat: number;
-  created_at: string;
-  updated_at: string | null;
-  nama_anak: string;
-  nama_kader: string | null;
-  nik_anak: string | null; 
-  nama_ibu: string | null; 
+  id: number;
+  id_anak: number;
+  tanggal_pemeriksaan: string; // Biarkan string YYYY-MM-DD
+  bb_kg: number | null;
+  tb_cm: number | null;
+  lk_cm: number | null;
+  ll_cm: number | null;
+  status_gizi: string | null;
+  saran: string | null;
+  id_kader_pencatat: number; // Bisa dihapus jika backend selalu ambil dari token
+  created_at: string;
+  updated_at: string | null;
+  nama_anak: string;
+  nama_kader: string | null;
+  nik_anak: string | null;
+  nama_ibu: string | null;
 }
 // Tipe untuk form create/edit
 type PerkembanganFormData = {
-  id_anak: string; 
-  tanggal_pemeriksaan: string; 
-  bb_kg: string; 
-  tb_cm: string;
-  lk_cm: string;
-  ll_cm: string;
-  status_gizi: string; 
-  saran: string; 
+  id_anak: string;
+  tanggal_pemeriksaan: string;
+  bb_kg: string;
+  tb_cm: string;
+  lk_cm: string;
+  ll_cm: string;
+  status_gizi: string;
+  saran: string;
 }
 
 // --- Fungsi Debounce ---
-// Tipe NodeJS.Timeout mungkin butuh '@types/node'
 function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: ReturnType<typeof setTimeout> | null = null; // Gunakan ReturnType<typeof setTimeout>
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   return function executedFunction(...args: Parameters<T>) {
     const later = () => {
       timeout = null;
@@ -69,60 +70,61 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (.
 
 
 export default function DataPerkembanganPage() {
-  const [daftarPerkembangan, setDaftarPerkembangan] = useState<Perkembangan[]>([]);
-  const [daftarAnakOptions, setDaftarAnakOptions] = useState<AnakOption[]>([]);
-  // State untuk form create/edit, loading, dll (Tidak berubah)
-  const [formData, setFormData] = useState<PerkembanganFormData>({
-    id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: ''
-  });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false); 
-  const [isFetching, setIsFetching] = useState(true); 
-  const [isFetchingAnak, setIsFetchingAnak] = useState(true); 
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter(); // <-- 3. Inisialisasi router
+  const { isLoggedIn, kaderId, authToken } = useAuth(); // <-- Gunakan useAuth
+  const fetchWithAuth = useFetchWithAuth(); // <-- 4. Dapatkan fungsi fetch terautentikasi
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPerkembangan, setEditingPerkembangan] = useState<Perkembangan | null>(null);
-  const [editFormData, setEditFormData] = useState<PerkembanganFormData>({
-     id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: ''
-  });
-  // ID Kader yang login (sementara hardcode, ganti dengan data sesi)
-  const { kaderId: loggedInKaderId, authToken } = useAuth();
-  // Fungsi untuk menambahkan Header Authorization jika token ada
-  const getAuthHeaders = useCallback(() => ({
-      'Content-Type': 'application/json',
-      ...(authToken && { 'Authorization': `Bearer ${authToken}` }), 
-    }), [authToken]);
+  const [daftarPerkembangan, setDaftarPerkembangan] = useState<Perkembangan[]>([]);
+  const [daftarAnakOptions, setDaftarAnakOptions] = useState<AnakOption[]>([]);
+  const [formData, setFormData] = useState<PerkembanganFormData>({
+    id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: ''
+  });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [isFetchingAnak, setIsFetchingAnak] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPerkembangan, setEditingPerkembangan] = useState<Perkembangan | null>(null);
+  const [editFormData, setEditFormData] = useState<PerkembanganFormData>({
+      id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: ''
+  });
+
+  const API_URL_PERKEMBANGAN = 'http://localhost:8080/api/perkembangan';
+  const API_URL_ANAK_SIMPLE = 'http://localhost:8080/api/anak/simple';
 
   // --- Fungsi Fetch Anak Simple (Dropdown) ---
   const fetchAnakOptions = useCallback(async () => {
     setIsFetchingAnak(true);
     try {
-      const response = await fetch('http://localhost:8080/api/anak/simple'); // Endpoint baru
+      // Gunakan fetchWithAuth
+      const response = await fetchWithAuth(API_URL_ANAK_SIMPLE);
       if (!response.ok) throw new Error('Gagal mengambil daftar anak');
       const data: AnakOption[] = await response.json();
       setDaftarAnakOptions(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Fetch anak options failed:", err);
-      setError('Gagal memuat daftar anak untuk pilihan.');
+       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+          setError('Gagal memuat daftar anak untuk pilihan.');
+       }
     } finally {
       setIsFetchingAnak(false);
     }
-  }, []);
+  }, [fetchWithAuth]); // <-- Tambah dependensi
 
   // --- Fungsi Fetch Perkembangan ---
   const fetchPerkembangan = useCallback(async (query: string = '') => {
     setIsFetching(true);
     setError('');
-    let url = 'http://localhost:8080/api/perkembangan'; // Endpoint perkembangan
+    let url = API_URL_PERKEMBANGAN;
     if (query) {
       url += `?search=${encodeURIComponent(query)}`;
     }
     try {
-      const response = await fetch(url);
+      // Gunakan fetchWithAuth
+      const response = await fetchWithAuth(url);
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data perkembangan';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
@@ -138,28 +140,36 @@ export default function DataPerkembanganPage() {
       setDaftarPerkembangan(formattedData);
     } catch (err: any) {
       console.error("Fetch perkembangan failed:", err);
-      setError('Tidak dapat memuat data perkembangan.');
+       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+         setError('Tidak dapat memuat data perkembangan.');
+       }
       setDaftarPerkembangan([]);
     } finally {
       setIsFetching(false);
     }
-  }, []);
+  }, [fetchWithAuth]); // <-- Tambah dependensi
 
   const debouncedFetch = useCallback(debounce(fetchPerkembangan, 500), [fetchPerkembangan]);
 
-  useEffect(() => {
-    // Hanya fetch jika sudah ada ID Kader (artinya user sudah login)
-    if (loggedInKaderId && authToken) { // <-- Pastikan ada Token dan ID
-      fetchAnakOptions(); 
-      fetchPerkembangan(); 
+  // --- useEffect untuk fetch data awal dan redirect ---
+   useEffect(() => {
+    if (isLoggedIn) {
+        fetchAnakOptions();
+        fetchPerkembangan();
     } else {
-      // Opsi: redirect ke halaman login jika tidak ada Auth
-      // router.push('/login'); 
-      console.warn("User belum terautentikasi, fetch data dibatalkan.");
-      setIsFetching(false);
-      setIsFetchingAnak(false);
+        const checkAuthAndRedirect = async () => {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (!localStorage.getItem('authToken')) {
+                 console.log("Belum login (perkembangan), mengarahkan ke /login...");
+                 router.push('/login');
+            }
+       };
+       if (!isFetching && !isFetchingAnak) { // Cek setelah fetch awal selesai
+             checkAuthAndRedirect();
+       }
     }
-  }, [loggedInKaderId, authToken, fetchAnakOptions, fetchPerkembangan]);
+  }, [isLoggedIn, isFetching, isFetchingAnak, fetchPerkembangan, fetchAnakOptions, router]);
+
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -170,21 +180,27 @@ export default function DataPerkembanganPage() {
    // --- Fungsi Helper Konversi Payload ---
   const preparePayload = (data: PerkembanganFormData) => {
       const payload: any = {
-          ...data,
+          // ...data, // Tidak perlu spread jika field berbeda
           id_anak: parseInt(data.id_anak, 10),
+          tanggal_pemeriksaan: data.tanggal_pemeriksaan, // Sudah string YYYY-MM-DD
           bb_kg: data.bb_kg === '' ? null : parseFloat(data.bb_kg),
           tb_cm: data.tb_cm === '' ? null : parseFloat(data.tb_cm),
           lk_cm: data.lk_cm === '' ? null : parseFloat(data.lk_cm),
           ll_cm: data.ll_cm === '' ? null : parseFloat(data.ll_cm),
           status_gizi: data.status_gizi === '' ? null : data.status_gizi,
           saran: data.saran === '' ? null : data.saran,
-          id_kader_pencatat: loggedInKaderId, // Tambahkan ID kader yang login
+          // HAPUS id_kader_pencatat: kaderId, // Hapus jika backend ambil dari token
       };
-      if (isNaN(payload.id_anak)) payload.id_anak = 0; // Atau handle error
+      if (isNaN(payload.id_anak)) payload.id_anak = 0;
       if (isNaN(payload.bb_kg)) payload.bb_kg = null;
       if (isNaN(payload.tb_cm)) payload.tb_cm = null;
       if (isNaN(payload.lk_cm)) payload.lk_cm = null;
       if (isNaN(payload.ll_cm)) payload.ll_cm = null;
+
+       // Validasi tanggal
+      if (!payload.tanggal_pemeriksaan || !/^\d{4}-\d{2}-\d{2}$/.test(payload.tanggal_pemeriksaan)) {
+          throw new Error("Format Tanggal Pemeriksaan tidak valid. Gunakan YYYY-MM-DD.");
+      }
 
       return payload;
   };
@@ -201,24 +217,24 @@ export default function DataPerkembanganPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(''); setSuccess(''); setIsLoading(true);
-    const payload = preparePayload(formData);
-    if (!payload.id_anak || payload.id_anak <= 0) {
-        setError("Silakan pilih Anak terlebih dahulu.");
-        setIsLoading(false);
-        return;
-    }
 
     try {
-      const response = await fetch('http://localhost:8080/api/perkembangan', {
+      const payload = preparePayload(formData); // Validasi format tanggal
+      if (!payload.id_anak || payload.id_anak <= 0) {
+          throw new Error("Silakan pilih Anak terlebih dahulu.");
+      }
+
+       // Gunakan fetchWithAuth untuk POST
+      const response = await fetchWithAuth(API_URL_PERKEMBANGAN, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload), // Payload sudah disiapkan tanpa ID kader
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menambahkan data perkembangan.');
+
       setSuccess('Data perkembangan berhasil ditambahkan!');
-      setFormData({ id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: '' });
-      fetchPerkembangan(searchQuery);
+      setFormData({ id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: '' }); // Reset form
+      fetchPerkembangan(searchQuery); // Refresh tabel
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -231,6 +247,7 @@ export default function DataPerkembanganPage() {
     setEditingPerkembangan(p);
     setEditFormData({
         id_anak: p.id_anak?.toString() ?? '',
+        // Pastikan format YYYY-MM-DD
         tanggal_pemeriksaan: p.tanggal_pemeriksaan ? new Date(p.tanggal_pemeriksaan).toISOString().split('T')[0] : '',
         bb_kg: p.bb_kg?.toString() ?? '',
         tb_cm: p.tb_cm?.toString() ?? '',
@@ -255,21 +272,21 @@ export default function DataPerkembanganPage() {
     event.preventDefault();
     if (!editingPerkembangan) return;
     setIsLoading(true); setError('');
-    const payload = preparePayload(editFormData);
-    if (!payload.id_anak || payload.id_anak <= 0) {
-        setError("Silakan pilih Anak terlebih dahulu.");
-        setIsLoading(false);
-        return;
-    }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/perkembangan/${editingPerkembangan.id}`, {
+      const payload = preparePayload(editFormData); // Validasi format tanggal
+      if (!payload.id_anak || payload.id_anak <= 0) {
+          throw new Error("Silakan pilih Anak terlebih dahulu.");
+      }
+
+      // Gunakan fetchWithAuth untuk PUT
+      const response = await fetchWithAuth(`${API_URL_PERKEMBANGAN}/${editingPerkembangan.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload), // Payload sudah disiapkan tanpa ID kader
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data perkembangan.');
+
       setSuccess('Data perkembangan berhasil diperbarui!');
       setIsModalOpen(false);
       fetchPerkembangan(searchQuery);
@@ -285,7 +302,8 @@ export default function DataPerkembanganPage() {
     if (!confirm('Anda yakin ingin menghapus data perkembangan ini?')) { return; }
     setError(''); setSuccess('');
     try {
-      const response = await fetch(`http://localhost:8080/api/perkembangan/${id}`, {
+      // Gunakan fetchWithAuth untuk DELETE
+      const response = await fetchWithAuth(`${API_URL_PERKEMBANGAN}/${id}`, {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -297,43 +315,46 @@ export default function DataPerkembanganPage() {
     }
   };
 
-  // Fungsi formatTanggal
+  // Fungsi formatTanggal untuk created/updated
   const formatTanggal = (tanggalString: string | null) => {
     if (!tanggalString) return 'N/A';
-    // Format lengkap untuk created_at/updated_at
     try {
         return new Date(tanggalString).toLocaleString('id-ID', {
             day: '2-digit', month: 'short', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
         });
-    } catch (e) { return 'Invalid Date'; }
+    } catch(e) { return 'Invalid Date';}
    };
+
+   // Fungsi format tanggal HANYA untuk tampilan di tabel
    const formatDisplayTanggal = (tanggalString: string | null) => {
       if (!tanggalString) return '-';
-      // Format tanggal saja untuk tanggal lahir/pemeriksaan
       try {
-        // Asumsi tanggalString adalah YYYY-MM-DD
-        const [year, month, day] = tanggalString.split('-');
-        // Pastikan tanggal valid sebelum format
-        if (!year || !month || !day) return tanggalString;
-        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-        // Cek jika hasil parsing valid
+        // Asumsi input YYYY-MM-DD
+        const date = new Date(tanggalString + 'T00:00:00');
         if (isNaN(date.getTime())) return tanggalString;
         return date.toLocaleDateString('id-ID', {
             day: '2-digit', month: 'long', year: 'numeric'
         });
       } catch (e) {
-          console.error("Error formatting date:", tanggalString, e); // Log error
-          return tanggalString; // Tampilkan string asli jika format salah
-      }
+        console.error("Error formatting display date:", tanggalString, e);
+        return tanggalString;
+       }
   };
+
+   // Render loading atau pesan jika belum login
+   if ((isFetching || isFetchingAnak) && !daftarPerkembangan.length && !daftarAnakOptions.length) {
+     return <div className="text-center p-8">Memuat data...</div>;
+   }
+   if (!isLoggedIn && !isFetching && !isFetchingAnak) {
+     return <div className="text-center p-8">Anda harus login untuk mengakses halaman ini. Mengarahkan...</div>;
+   }
 
 
   return (
-    // Menggunakan Fragment karena div terluar sudah ada di layout.tsx
     <>
       {/* --- Form Create Perkembangan --- */}
-      <div className="bg-white rounded-xl shadow-md p-6 sm:p-8">
+      <div className="bg-white rounded-xl shadow-md p-6 sm:p-8 mb-8"> {/* Tambah mb-8 */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Tambah Data Perkembangan Anak</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
@@ -387,7 +408,7 @@ export default function DataPerkembanganPage() {
           {error && !isModalOpen && <p className="text-red-500 text-center font-medium pt-2">{error}</p>}
           {success && !isModalOpen && <p className="text-green-600 text-center font-medium pt-2">{success}</p>}
           <div className="pt-4">
-            <Button type="submit" disabled={isLoading || isFetchingAnak} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer">
+            <Button type="submit" disabled={isLoading || isFetchingAnak || !isLoggedIn} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               {isLoading ? 'Menyimpan...' : 'Tambahkan Data Perkembangan'}
             </Button>
           </div>
@@ -419,12 +440,11 @@ export default function DataPerkembanganPage() {
                  <th className="px-6 py-3">Aksi</th>
                </tr>
              </thead>
-             {/* --- Perbaikan tbody --- */}
              <tbody className="text-gray-700">
-               {isFetching ? (
+               {isFetching && daftarPerkembangan.length === 0 ? ( // Perbaiki kondisi loading
                  <tr><td colSpan={10} className="text-center p-8">Memuat data perkembangan...</td></tr>
                ) : daftarPerkembangan.length > 0 ? (
-                 daftarPerkembangan.map((p) => ( // Gunakan variabel 'p'
+                 daftarPerkembangan.map((p) => (
                   <tr key={p.id} className="border-b hover:bg-gray-50">
                    <td className="px-6 py-4 font-medium">{p.nama_anak || '-'}</td>
                    <td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(p.tanggal_pemeriksaan)}</td>
@@ -444,14 +464,13 @@ export default function DataPerkembanganPage() {
                      </Button>
                    </td>
                  </tr>
-                 )) // Tutup map
+                 ))
                ) : (
                  <tr><td colSpan={10} className="text-center p-8">
                      {searchQuery ? `Tidak ada data ditemukan untuk "${searchQuery}".` : "Belum ada data perkembangan."}
                  </td></tr>
                )}
              </tbody>
-             {/* --- Akhir Perbaikan tbody --- */}
           </table>
         </div>
       </div>
@@ -465,42 +484,43 @@ export default function DataPerkembanganPage() {
           </DialogHeader>
           <form onSubmit={handleUpdateSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
-                <Label htmlFor="id_anak_edit">Anak *</Label>
+                <Label htmlFor="id_anak_edit">Anak *</Label> {/* ID unik */}
                  <Select value={editFormData.id_anak} onValueChange={(value) => handleEditSelectChange('id_anak', value)} required disabled={isFetchingAnak}>
-                    <SelectTrigger className="w-full mt-1" id="id_anak_edit"> <SelectValue placeholder="Pilih Anak" /> </SelectTrigger>
+                    <SelectTrigger className="w-full mt-1" id="id_anak_edit"> <SelectValue placeholder={isFetchingAnak ? "Memuat..." : "Pilih Anak"} /> </SelectTrigger>
                     <SelectContent>
                         {daftarAnakOptions.map((anak) => (
                             <SelectItem key={anak.id} value={anak.id.toString()}> {anak.nama_anak || `Anak ID: ${anak.id}`} </SelectItem>
                         ))}
+                         {daftarAnakOptions.length === 0 && <SelectItem value="disabled" disabled>{isFetchingAnak ? "Memuat..." : "Tidak ada data anak"}</SelectItem>}
                     </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="tanggal_pemeriksaan_edit">Tanggal Pemeriksaan *</Label>
+                <Label htmlFor="tanggal_pemeriksaan_edit">Tanggal Pemeriksaan *</Label> {/* ID unik */}
                 <Input type="date" id="tanggal_pemeriksaan" value={editFormData.tanggal_pemeriksaan} onChange={handleEditFormChange} required className="mt-1" />
               </div>
               <div>
-                  <Label htmlFor="bb_kg_edit">Berat Badan (kg)</Label>
+                  <Label htmlFor="bb_kg_edit">Berat Badan (kg)</Label> {/* ID unik */}
                   <Input type="number" step="0.01" id="bb_kg" value={editFormData.bb_kg} onChange={handleEditFormChange} placeholder="Contoh: 8.5" min="0" className="mt-1" />
               </div>
                <div>
-                  <Label htmlFor="tb_cm_edit">Tinggi Badan (cm)</Label>
+                  <Label htmlFor="tb_cm_edit">Tinggi Badan (cm)</Label> {/* ID unik */}
                   <Input type="number" step="0.1" id="tb_cm" value={editFormData.tb_cm} onChange={handleEditFormChange} placeholder="Contoh: 70.2" min="0" className="mt-1" />
               </div>
                <div>
-                  <Label htmlFor="lk_cm_edit">Lingkar Kepala (cm)</Label>
+                  <Label htmlFor="lk_cm_edit">Lingkar Kepala (cm)</Label> {/* ID unik */}
                   <Input type="number" step="0.1" id="lk_cm" value={editFormData.lk_cm} onChange={handleEditFormChange} placeholder="Contoh: 45.1" min="0" className="mt-1" />
               </div>
                <div>
-                  <Label htmlFor="ll_cm_edit">Lingkar Lengan (cm)</Label>
+                  <Label htmlFor="ll_cm_edit">Lingkar Lengan (cm)</Label> {/* ID unik */}
                   <Input type="number" step="0.1" id="ll_cm" value={editFormData.ll_cm} onChange={handleEditFormChange} placeholder="Contoh: 15.3" min="0" className="mt-1" />
               </div>
                <div>
-                  <Label htmlFor="status_gizi_edit">Status Gizi</Label>
+                  <Label htmlFor="status_gizi_edit">Status Gizi</Label> {/* ID unik */}
                   <Input type="text" id="status_gizi" value={editFormData.status_gizi} onChange={handleEditFormChange} placeholder="(Opsional)" className="mt-1" />
               </div>
               <div>
-                  <Label htmlFor="saran_edit">Saran</Label>
+                  <Label htmlFor="saran_edit">Saran</Label> {/* ID unik */}
                   <Textarea id="saran" value={editFormData.saran} onChange={handleEditFormChange} placeholder="(Opsional)" className="mt-1 h-20 resize-none" />
               </div>
 

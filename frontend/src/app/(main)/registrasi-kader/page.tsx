@@ -1,14 +1,17 @@
-// src/app/dashboard/data-kader/page.tsx
+// src/app/(main)/registrasi-kader/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation'; // <-- 1. Import useRouter
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose // <-- Tambah DialogClose
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Pencil, Trash2, Search, KeyRound } from 'lucide-react'; // <-- Import KeyRound
+import { Pencil, Trash2, Search, KeyRound } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext'; // <-- 2. Import useAuth
+import { useFetchWithAuth } from '@/lib/utils'; // <-- 3. Import useFetchWithAuth
 
 // Interface Kader
 interface Kader {
@@ -47,6 +50,10 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (.
 }
 
 export default function DataKaderPage() {
+  const router = useRouter(); // <-- 4. Inisialisasi router
+  const { isLoggedIn, authToken } = useAuth(); // <-- 5. Gunakan useAuth
+  const fetchWithAuth = useFetchWithAuth(); // <-- 6. Dapatkan fungsi fetch terautentikasi
+
   const [daftarKader, setDaftarKader] = useState<Kader[]>([]);
   const [registerFormData, setRegisterFormData] = useState<RegisterKaderFormData>({
     nama_lengkap: '', nik: '', no_telepon: '', username: '', password: '',
@@ -72,17 +79,19 @@ export default function DataKaderPage() {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
 
+  const API_URL_KADER = 'http://localhost:8080/api/kader';
 
   // --- Fungsi Fetch Kader ---
   const fetchKader = useCallback(async (query: string = '') => {
     setIsFetching(true);
     setError(''); // Bersihkan error utama saat fetch
-    let url = 'http://localhost:8080/api/kader';
+    let url = API_URL_KADER;
     if (query) {
       url += `?search=${encodeURIComponent(query)}`;
     }
     try {
-      const response = await fetch(url);
+      // Gunakan fetchWithAuth jika GET perlu login
+      const response = await fetchWithAuth(url);
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data kader';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
@@ -93,18 +102,35 @@ export default function DataKaderPage() {
       setDaftarKader(data);
     } catch (err: any) {
       console.error("Fetch kader failed:", err);
-      setError('Tidak dapat memuat data kader.'); // Tampilkan error utama
+       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+          setError('Tidak dapat memuat data kader.');
+       }
       setDaftarKader([]);
     } finally {
       setIsFetching(false);
     }
-  }, []);
+  }, [fetchWithAuth]); // <-- Tambah dependensi
 
   const debouncedFetch = useCallback(debounce(fetchKader, 500), [fetchKader]);
 
+   // --- useEffect untuk fetch data awal dan redirect ---
   useEffect(() => {
-    fetchKader();
-  }, [fetchKader]);
+    if (isLoggedIn) {
+      fetchKader();
+    } else {
+        const checkAuthAndRedirect = async () => {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (!localStorage.getItem('authToken')) {
+                console.log("Belum login (kader), mengarahkan ke /login...");
+                router.push('/login');
+            }
+       };
+       if (!isFetching) { // Cek setelah fetch awal selesai
+             checkAuthAndRedirect();
+       }
+    }
+  }, [isLoggedIn, isFetching, fetchKader, router]); // Tambahkan dependensi
+
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -124,9 +150,11 @@ export default function DataKaderPage() {
     setSuccess('');
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/kader', {
+      // Gunakan fetchWithAuth JIKA endpoint POST /kader perlu login
+      // Jika registrasi kader bisa publik, gunakan fetch biasa
+      const response = await fetchWithAuth(API_URL_KADER, { // Ganti ke fetch biasa jika publik
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // headers sudah dihandle fetchWithAuth
         body: JSON.stringify(registerFormData),
       });
       const data = await response.json();
@@ -151,7 +179,7 @@ export default function DataKaderPage() {
       username: kader.username || '',
     });
     setIsEditModalOpen(true);
-    setError(''); // Bersihkan error utama
+    setError('');
     setSuccess('');
   };
 
@@ -164,16 +192,16 @@ export default function DataKaderPage() {
     event.preventDefault();
     if (!editingKader) return;
     setIsLoading(true);
-    setError(''); // Bersihkan error di modal edit
+    setError('');
     try {
-      const response = await fetch(`http://localhost:8080/api/kader/${editingKader.id}`, {
+      // Gunakan fetchWithAuth untuk PUT
+      const response = await fetchWithAuth(`${API_URL_KADER}/${editingKader.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editFormData),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data kader.');
-      setSuccess('Data Kader berhasil diperbarui!'); // Tampilkan success utama
+      setSuccess('Data Kader berhasil diperbarui!');
       setIsEditModalOpen(false);
       fetchKader(searchQuery);
     } catch (err: any) {
@@ -189,15 +217,16 @@ export default function DataKaderPage() {
     setError('');
     setSuccess('');
     try {
-      const response = await fetch(`http://localhost:8080/api/kader/${id}`, {
+      // Gunakan fetchWithAuth untuk DELETE
+      const response = await fetchWithAuth(`${API_URL_KADER}/${id}`, {
         method: 'DELETE',
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data kader.');
-      setSuccess('Data Kader berhasil dihapus!'); // Tampilkan success utama
+      setSuccess('Data Kader berhasil dihapus!');
       fetchKader(searchQuery);
     } catch (err: any) {
-      setError(err.message); // Tampilkan error utama
+      setError(err.message);
     }
   };
 
@@ -223,9 +252,9 @@ export default function DataKaderPage() {
     setPasswordError('');
     setPasswordSuccess('');
     try {
-      const response = await fetch(`http://localhost:8080/api/kader/${changingPasswordKaderId}/password`, {
+       // Gunakan fetchWithAuth untuk PUT password
+      const response = await fetchWithAuth(`${API_URL_KADER}/${changingPasswordKaderId}/password`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(passwordData),
       });
       const data = await response.json();
@@ -237,7 +266,7 @@ export default function DataKaderPage() {
         setIsPasswordModalOpen(false);
       }, 2000); // Tutup otomatis setelah 2 detik
     } catch (err: any) {
-      setPasswordError(err.message); // Tampilkan error di modal password
+      setPasswordError(err.message);
     } finally {
       setIsPasswordLoading(false);
     }
@@ -247,21 +276,32 @@ export default function DataKaderPage() {
   // Fungsi formatTanggal
   const formatTanggal = (tanggalString: string | null) => {
     if (!tanggalString) return 'N/A';
-    return new Date(tanggalString).toLocaleString('id-ID', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+    try {
+        return new Date(tanggalString).toLocaleString('id-ID', {
+            day: '2-digit', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+     } catch (e) { return 'Invalid Date';}
    };
+
+    // Render loading atau pesan jika belum login
+   if (isFetching && !daftarKader.length) {
+     return <div className="text-center p-8">Memuat data...</div>;
+   }
+   if (!isLoggedIn && !isFetching) {
+     return <div className="text-center p-8">Anda harus login untuk mengakses halaman ini. Mengarahkan...</div>;
+   }
+
 
   return (
     <>
     {/* --- Form Registrasi Kader --- */}
-    <div className='flex flex-col gap-9 mb-8'> 
+    <div className='flex flex-col gap-9 mb-8'>
       <div className="bg-white rounded-xl shadow-md p-6 sm:p-8">
         <form onSubmit={handleRegisterSubmit} className="space-y-6">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Registrasi Kader Baru</h2>
           <div>
-            <Label htmlFor="nama_lengkap">Nama Lengkap</Label>
+            <Label htmlFor="nama_lengkap">Nama Lengkap *</Label>
             <Input type="text" id="nama_lengkap" value={registerFormData.nama_lengkap} onChange={handleRegisterChange} required placeholder="Nama lengkap kader" className="mt-1" />
           </div>
           <div>
@@ -273,18 +313,18 @@ export default function DataKaderPage() {
             <Input type="text" id="no_telepon" value={registerFormData.no_telepon} onChange={handleRegisterChange} placeholder="Contoh: 0812... (Opsional)" className="mt-1" />
           </div>
           <div>
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">Username *</Label>
             <Input type="text" id="username" value={registerFormData.username} onChange={handleRegisterChange} required placeholder="Username untuk login" className="mt-1" />
           </div>
           <div>
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Password *</Label>
             <Input type="password" id="password" value={registerFormData.password} onChange={handleRegisterChange} required placeholder="Password login" className="mt-1" />
           </div>
           {/* Tampilkan error/success hanya jika bukan dari modal */}
           {error && !isEditModalOpen && !isPasswordModalOpen && <p className="text-red-500 text-center font-medium pt-2">{error}</p>}
-          {success && !isPasswordModalOpen && <p className="text-green-600 text-center font-medium pt-2">{success}</p>}
+          {success && !isEditModalOpen && !isPasswordModalOpen && <p className="text-green-600 text-center font-medium pt-2">{success}</p>}
           <div className="pt-4">
-            <Button type="submit" disabled={isLoading} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer">
+            <Button type="submit" disabled={isLoading || !isLoggedIn} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               {isLoading ? 'Mendaftarkan...' : 'Daftarkan Kader'}
             </Button>
           </div>
@@ -314,7 +354,7 @@ export default function DataKaderPage() {
                </tr>
              </thead>
              <tbody className="text-gray-700">
-               {isFetching ? (
+               {isFetching && daftarKader.length === 0 ? ( // Perbaiki kondisi loading
                  <tr><td colSpan={7} className="text-center p-8">Memuat data kader...</td></tr>
                ) : daftarKader.length > 0 ? (
                  daftarKader.map((kader) => (
@@ -356,33 +396,38 @@ export default function DataKaderPage() {
           </DialogHeader>
           <form onSubmit={handleUpdateSubmit} className="space-y-4 py-4">
             <div className="space-y-1">
-              <Label htmlFor="nama_lengkap">Nama Lengkap</Label>
+              <Label htmlFor="nama_lengkap_edit">Nama Lengkap *</Label> {/* ID unik */}
               <Input id="nama_lengkap" value={editFormData.nama_lengkap} onChange={handleEditFormChange} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="nik">NIK</Label>
+              <Label htmlFor="nik_edit">NIK</Label> {/* ID unik */}
               <Input id="nik" value={editFormData.nik} onChange={handleEditFormChange} maxLength={16} placeholder="(Opsional)" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="no_telepon">No. Telepon</Label>
+              <Label htmlFor="no_telepon_edit">No. Telepon</Label> {/* ID unik */}
               <Input id="no_telepon" value={editFormData.no_telepon} onChange={handleEditFormChange} placeholder="(Opsional)" />
             </div>
              <div className="space-y-1">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username_edit">Username *</Label> {/* ID unik */}
               <Input id="username" value={editFormData.username} onChange={handleEditFormChange} required />
             </div>
             {/* Tampilkan error spesifik modal edit */}
             {error && isEditModalOpen && <p className="text-red-500 text-center pt-2">{error}</p>}
 
             {/* Tombol Ubah Password */}
-            <div className="pt-4">
-                 <Button type="button" variant="secondary" onClick={() => handleOpenPasswordModal(editingKader?.id ?? 0)} className="w-full cursor-pointer">
+            {editingKader && ( // Hanya tampilkan jika ada kader yg diedit
+             <div className="pt-4">
+                 <Button type="button" variant="secondary" onClick={() => handleOpenPasswordModal(editingKader.id)} className="w-full cursor-pointer">
                      <KeyRound className="w-4 h-4 mr-2"/> Ubah Password
                  </Button>
             </div>
+            )}
+
 
             <DialogFooter className="pt-4 sm:justify-between">
-              <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="cursor-pointer">Batal</Button>
+               <DialogClose asChild>
+                  <Button type="button" variant="outline" className="cursor-pointer">Batal</Button>
+               </DialogClose>
               <Button type="submit" disabled={isLoading} className="cursor-pointer">
                 {isLoading ? 'Menyimpan...' : 'Simpan Perubahan Data'}
               </Button>
@@ -397,12 +442,18 @@ export default function DataKaderPage() {
           <DialogHeader>
             <DialogTitle>Ubah Password Kader</DialogTitle>
             <DialogDescription>
-              Masukkan password lama dan password baru Anda.
+             Masukkan password baru untuk kader ini.
+             {/* Jika perlu validasi password lama, tambahkan inputnya di sini */}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePasswordUpdateSubmit} className="space-y-4 py-4">
+           {/* Hapus input password lama jika tidak divalidasi */}
+            {/* <div className="space-y-1">
+              <Label htmlFor="current_password">Password Lama</Label>
+              <Input id="current_password" type="password" value={passwordData.current_password} onChange={handlePasswordChange} required />
+            </div> */}
             <div className="space-y-1">
-              <Label htmlFor="new_password">Password Baru</Label>
+              <Label htmlFor="new_password">Password Baru *</Label>
               <Input id="new_password" type="password" value={passwordData.new_password} onChange={handlePasswordChange} required />
             </div>
 
@@ -411,7 +462,6 @@ export default function DataKaderPage() {
             {passwordSuccess && <p className="text-green-600 text-center pt-2">{passwordSuccess}</p>}
 
             <DialogFooter className="pt-4 sm:justify-between">
-               {/* Gunakan DialogClose agar tombol Batal menutup modal */}
                <DialogClose asChild>
                   <Button type="button" variant="outline" className="cursor-pointer">Batal</Button>
                </DialogClose>

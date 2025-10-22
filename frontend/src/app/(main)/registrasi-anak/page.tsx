@@ -1,7 +1,8 @@
-// src/app/dashboard/data-anak/page.tsx
+// src/app/(main)/registrasi-anak/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation'; // <-- 1. Import useRouter
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from "@/components/ui/dialog";
@@ -10,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Trash2, Search } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext'; // <-- 2. Import useAuth
+import { useFetchWithAuth } from '@/lib/utils'; // <-- 3. Import useFetchWithAuth
 
 // Interface Ibu (minimal untuk dropdown)
 interface IbuOption {
@@ -23,7 +26,7 @@ interface Anak {
   id_ibu: number;
   nama_anak: string;
   nik_anak: string | null;
-  tanggal_lahir: string;
+  tanggal_lahir: string; // Biarkan string YYYY-MM-DD untuk form
   jenis_kelamin: string;
   anak_ke: number | null;
   berat_lahir_kg: number | null;
@@ -55,6 +58,10 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (.
 }
 
 export default function DataAnakPage() {
+  const router = useRouter(); // <-- 4. Inisialisasi router
+  const { isLoggedIn, authToken } = useAuth(); // <-- 5. Gunakan useAuth
+  const fetchWithAuth = useFetchWithAuth(); // <-- 6. Dapatkan fungsi fetch terautentikasi
+
   const [daftarAnak, setDaftarAnak] = useState<Anak[]>([]);
   const [daftarIbuOptions, setDaftarIbuOptions] = useState<IbuOption[]>([]);
   const [formData, setFormData] = useState<AnakFormData>({
@@ -72,32 +79,39 @@ export default function DataAnakPage() {
      id_ibu: '', nama_anak: '', nik_anak: '', tanggal_lahir: '', jenis_kelamin: '', anak_ke: '', berat_lahir_kg: '', tinggi_lahir_cm: ''
   });
 
+  const API_URL_ANAK = 'http://localhost:8080/api/anak';
+  const API_URL_IBU = 'http://localhost:8080/api/ibu';
+
   // --- Fungsi Fetch Ibu (Dropdown) ---
   const fetchIbuOptions = useCallback(async () => {
     setIsFetchingIbu(true);
     try {
-      const response = await fetch('http://localhost:8080/api/ibu');
+      // Gunakan fetchWithAuth jika GET /api/ibu perlu login
+      const response = await fetchWithAuth(API_URL_IBU);
       if (!response.ok) throw new Error('Gagal mengambil data ibu');
       const data: IbuOption[] = await response.json();
       setDaftarIbuOptions(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Fetch ibu options failed:", err);
-      setError('Gagal memuat daftar ibu.');
+       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+            setError('Gagal memuat daftar ibu.');
+       }
     } finally {
       setIsFetchingIbu(false);
     }
-  }, []);
+  }, [fetchWithAuth]); // <-- Tambah dependensi
 
   // --- Fungsi Fetch Anak ---
   const fetchAnak = useCallback(async (query: string = '') => {
     setIsFetching(true);
-    setError(''); // Clear main error on fetch
-    let url = 'http://localhost:8080/api/anak';
+    setError('');
+    let url = API_URL_ANAK;
     if (query) {
       url += `?search=${encodeURIComponent(query)}`;
     }
     try {
-      const response = await fetch(url);
+       // Gunakan fetchWithAuth jika GET /api/anak perlu login
+      const response = await fetchWithAuth(url);
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data anak';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
@@ -105,6 +119,7 @@ export default function DataAnakPage() {
         throw new Error(errorMsg);
       }
       const data: Anak[] = await response.json();
+      // Format tanggal lahir menjadi YYYY-MM-DD
       const formattedData = data.map(anak => ({
         ...anak,
         tanggal_lahir: anak.tanggal_lahir ? new Date(anak.tanggal_lahir).toISOString().split('T')[0] : '',
@@ -112,19 +127,36 @@ export default function DataAnakPage() {
       setDaftarAnak(formattedData);
     } catch (err: any) {
       console.error("Fetch anak failed:", err);
-      setError('Tidak dapat memuat data anak.');
+       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+            setError('Tidak dapat memuat data anak.');
+       }
       setDaftarAnak([]);
     } finally {
       setIsFetching(false);
     }
-  }, []);
+  }, [fetchWithAuth]); // <-- Tambah dependensi
 
   const debouncedFetch = useCallback(debounce(fetchAnak, 500), [fetchAnak]);
 
+  // --- useEffect untuk fetch data awal dan redirect ---
   useEffect(() => {
-    fetchIbuOptions();
-    fetchAnak();
-  }, [fetchAnak, fetchIbuOptions]);
+    if (isLoggedIn) {
+        fetchIbuOptions(); // Fetch ibu dulu atau bersamaan
+        fetchAnak();
+    } else {
+        // Redirect jika belum login (setelah cek state awal)
+       const checkAuthAndRedirect = async () => {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            if (!localStorage.getItem('authToken')) {
+                console.log("Belum login (anak), mengarahkan ke /login...");
+                router.push('/login');
+            }
+       };
+       if (!isFetching && !isFetchingIbu) { // Cek setelah fetch awal selesai
+            checkAuthAndRedirect();
+       }
+    }
+  }, [isLoggedIn, isFetching, isFetchingIbu, fetchAnak, fetchIbuOptions, router]); // Tambahkan dependensi
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -135,18 +167,27 @@ export default function DataAnakPage() {
   // --- Fungsi Helper Konversi Payload ---
   const preparePayload = (data: AnakFormData) => {
       const payload: any = {
-          ...data,
+          // ...data, // Tidak perlu spread jika field berbeda
           id_ibu: parseInt(data.id_ibu, 10),
+          nama_anak: data.nama_anak,
           nik_anak: data.nik_anak === '' ? null : data.nik_anak,
+          tanggal_lahir: data.tanggal_lahir, // Sudah string YYYY-MM-DD
+          jenis_kelamin: data.jenis_kelamin,
           anak_ke: data.anak_ke === '' ? null : parseInt(data.anak_ke, 10),
           berat_lahir_kg: data.berat_lahir_kg === '' ? null : parseFloat(data.berat_lahir_kg),
           tinggi_lahir_cm: data.tinggi_lahir_cm === '' ? null : parseFloat(data.tinggi_lahir_cm),
       };
       // Basic validation after conversion
-      if (isNaN(payload.id_ibu)) payload.id_ibu = 0; // Send 0 or handle error if required field invalid
+      if (isNaN(payload.id_ibu)) payload.id_ibu = 0; // Atau handle error
       if (isNaN(payload.anak_ke)) payload.anak_ke = null;
       if (isNaN(payload.berat_lahir_kg)) payload.berat_lahir_kg = null;
       if (isNaN(payload.tinggi_lahir_cm)) payload.tinggi_lahir_cm = null;
+
+      // Validasi tanggal
+      if (!payload.tanggal_lahir || !/^\d{4}-\d{2}-\d{2}$/.test(payload.tanggal_lahir)) {
+          throw new Error("Format Tanggal Lahir tidak valid. Gunakan YYYY-MM-DD.");
+      }
+
       return payload;
   };
 
@@ -162,26 +203,28 @@ export default function DataAnakPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(''); setSuccess(''); setIsLoading(true);
-    const payload = preparePayload(formData);
-
-    // Frontend validation example
-    if (!payload.id_ibu || payload.id_ibu <= 0) {
-        setError("Silakan pilih Ibu/Wali.");
-        setIsLoading(false);
-        return;
-    }
 
     try {
-      const response = await fetch('http://localhost:8080/api/anak', {
+      const payload = preparePayload(formData); // Validasi format tanggal di sini
+
+      if (!payload.id_ibu || payload.id_ibu <= 0) {
+          throw new Error("Silakan pilih Ibu/Wali.");
+      }
+      if (!payload.jenis_kelamin) {
+          throw new Error("Silakan pilih Jenis Kelamin.");
+      }
+
+       // Gunakan fetchWithAuth untuk POST
+      const response = await fetchWithAuth(API_URL_ANAK, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menambahkan data anak.');
+
       setSuccess('Data Anak berhasil ditambahkan!');
-      setFormData({ id_ibu: '', nama_anak: '', nik_anak: '', tanggal_lahir: '', jenis_kelamin: '', anak_ke: '', berat_lahir_kg: '', tinggi_lahir_cm: '' });
-      fetchAnak(searchQuery);
+      setFormData({ id_ibu: '', nama_anak: '', nik_anak: '', tanggal_lahir: '', jenis_kelamin: '', anak_ke: '', berat_lahir_kg: '', tinggi_lahir_cm: '' }); // Reset form
+      fetchAnak(searchQuery); // Refresh tabel
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -196,6 +239,7 @@ export default function DataAnakPage() {
       id_ibu: anak.id_ibu?.toString() ?? '',
       nama_anak: anak.nama_anak || '',
       nik_anak: anak.nik_anak || '',
+      // Pastikan format YYYY-MM-DD
       tanggal_lahir: anak.tanggal_lahir ? new Date(anak.tanggal_lahir).toISOString().split('T')[0] : '',
       jenis_kelamin: anak.jenis_kelamin || '',
       anak_ke: anak.anak_ke?.toString() ?? '',
@@ -218,23 +262,25 @@ export default function DataAnakPage() {
     event.preventDefault();
     if (!editingAnak) return;
     setIsLoading(true); setError('');
-    const payload = preparePayload(editFormData);
-
-    // Frontend validation example
-    if (!payload.id_ibu || payload.id_ibu <= 0) {
-        setError("Silakan pilih Ibu/Wali.");
-        setIsLoading(false);
-        return;
-    }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/anak/${editingAnak.id}`, {
+      const payload = preparePayload(editFormData); // Validasi format tanggal
+
+       if (!payload.id_ibu || payload.id_ibu <= 0) {
+          throw new Error("Silakan pilih Ibu/Wali.");
+      }
+       if (!payload.jenis_kelamin) {
+          throw new Error("Silakan pilih Jenis Kelamin.");
+      }
+
+      // Gunakan fetchWithAuth untuk PUT
+      const response = await fetchWithAuth(`${API_URL_ANAK}/${editingAnak.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data anak.');
+
       setSuccess('Data Anak berhasil diperbarui!');
       setIsModalOpen(false);
       fetchAnak(searchQuery);
@@ -250,7 +296,8 @@ export default function DataAnakPage() {
     if (!confirm('Anda yakin ingin menghapus data anak ini?')) { return; }
     setError(''); setSuccess('');
     try {
-      const response = await fetch(`http://localhost:8080/api/anak/${id}`, {
+       // Gunakan fetchWithAuth untuk DELETE
+      const response = await fetchWithAuth(`${API_URL_ANAK}/${id}`, {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -262,34 +309,51 @@ export default function DataAnakPage() {
     }
   };
 
-  // Fungsi formatTanggal
+  // Fungsi formatTanggal untuk tampilan
   const formatTanggal = (tanggalString: string | null) => {
     if (!tanggalString) return 'N/A';
-    return new Date(tanggalString).toLocaleString('id-ID', {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit',
-    });
+     try {
+        return new Date(tanggalString).toLocaleString('id-ID', {
+            day: '2-digit', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+     } catch(e) { return 'Invalid Date'; }
    };
+   // Fungsi format tanggal HANYA untuk tampilan di tabel
    const formatDisplayTanggal = (tanggalString: string | null) => {
       if (!tanggalString) return '-';
       try {
-        return new Date(tanggalString).toLocaleDateString('id-ID', {
+        // Asumsi input YYYY-MM-DD dari state
+        const date = new Date(tanggalString + 'T00:00:00'); // Tambahkan waktu agar tidak ada isu timezone
+        if (isNaN(date.getTime())) return tanggalString; // Handle invalid date string
+        return date.toLocaleDateString('id-ID', {
             day: '2-digit', month: 'long', year: 'numeric'
         });
-      } catch (e) { return tanggalString; }
+      } catch (e) {
+          console.error("Error formatting display date:", tanggalString, e);
+          return tanggalString;
+       }
   };
 
+  // Render loading atau pesan jika belum login
+   if ((isFetching || isFetchingIbu) && !daftarAnak.length && !daftarIbuOptions.length) {
+     return <div className="text-center p-8">Memuat data...</div>;
+   }
+   if (!isLoggedIn && !isFetching && !isFetchingIbu) {
+     return <div className="text-center p-8">Anda harus login untuk mengakses halaman ini. Mengarahkan...</div>;
+   }
+
+
   return (
-    // Menggunakan Fragment karena div terluar sudah ada di layout.tsx
     <>
       {/* --- Form Create Anak --- */}
-      <div className="bg-white rounded-xl shadow-md p-6 sm:p-8">
+      <div className="bg-white rounded-xl shadow-md p-6 sm:p-8 mb-8"> {/* Tambah mb-8 */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Tambah Data Anak Baru</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
               <div>
                 <Label htmlFor="id_ibu">Ibu / Wali *</Label>
-                <Select value={formData.id_ibu} onValueChange={(value) => handleSelectChange('id_ibu', value)} required>
+                <Select value={formData.id_ibu} onValueChange={(value) => handleSelectChange('id_ibu', value)} required disabled={isFetchingIbu}>
                     <SelectTrigger className="w-full mt-1">
                         <SelectValue placeholder={isFetchingIbu ? "Memuat..." : "Pilih Ibu/Wali"} />
                     </SelectTrigger>
@@ -343,7 +407,7 @@ export default function DataAnakPage() {
           {error && !isModalOpen && <p className="text-red-500 text-center font-medium pt-2">{error}</p>}
           {success && !isModalOpen && <p className="text-green-600 text-center font-medium pt-2">{success}</p>}
           <div className="pt-4">
-            <Button type="submit" disabled={isLoading || isFetchingIbu} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer">
+            <Button type="submit" disabled={isLoading || isFetchingIbu || !isLoggedIn} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               {isLoading ? 'Menyimpan...' : 'Tambahkan Data Anak'}
             </Button>
           </div>
@@ -375,7 +439,7 @@ export default function DataAnakPage() {
                </tr>
              </thead>
              <tbody className="text-gray-700">
-               {isFetching ? (
+               {isFetching && daftarAnak.length === 0 ? ( // Perbaiki kondisi loading
                  <tr><td colSpan={9} className="text-center p-8">Memuat data anak...</td></tr>
                ) : daftarAnak.length > 0 ? (
                  daftarAnak.map((anak) => (
@@ -417,32 +481,33 @@ export default function DataAnakPage() {
           </DialogHeader>
           <form onSubmit={handleUpdateSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
               <div>
-                <Label htmlFor="id_ibu">Ibu / Wali *</Label>
-                 <Select value={editFormData.id_ibu} onValueChange={(value) => handleEditSelectChange('id_ibu', value)} required>
-                    <SelectTrigger className="w-full mt-1"> <SelectValue placeholder="Pilih Ibu/Wali" /> </SelectTrigger>
+                <Label htmlFor="id_ibu_edit">Ibu / Wali *</Label> {/* ID unik */}
+                 <Select value={editFormData.id_ibu} onValueChange={(value) => handleEditSelectChange('id_ibu', value)} required disabled={isFetchingIbu}>
+                    <SelectTrigger className="w-full mt-1" id="id_ibu_edit"> <SelectValue placeholder={isFetchingIbu ? "Memuat..." : "Pilih Ibu/Wali"} /> </SelectTrigger>
                     <SelectContent>
                         {daftarIbuOptions.map((ibu) => (
                             <SelectItem key={ibu.id} value={ibu.id.toString()}> {ibu.nama_lengkap || `Ibu ID: ${ibu.id}`} </SelectItem>
                         ))}
+                         {daftarIbuOptions.length === 0 && <SelectItem value="disabled" disabled> {isFetchingIbu ? "Memuat..." : "Tidak ada data ibu"} </SelectItem>}
                     </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="nama_anak">Nama Lengkap Anak *</Label>
+                <Label htmlFor="nama_anak_edit">Nama Lengkap Anak *</Label> {/* ID unik */}
                 <Input id="nama_anak" value={editFormData.nama_anak} onChange={handleEditFormChange} required className="mt-1" />
               </div>
               <div>
-                <Label htmlFor="nik_anak">NIK Anak</Label>
+                <Label htmlFor="nik_anak_edit">NIK Anak</Label> {/* ID unik */}
                 <Input id="nik_anak" value={editFormData.nik_anak} onChange={handleEditFormChange} placeholder="(Opsional)" maxLength={16} className="mt-1"/>
               </div>
               <div>
-                <Label htmlFor="tanggal_lahir">Tanggal Lahir *</Label>
+                <Label htmlFor="tanggal_lahir_edit">Tanggal Lahir *</Label> {/* ID unik */}
                 <Input type="date" id="tanggal_lahir" value={editFormData.tanggal_lahir} onChange={handleEditFormChange} required className="mt-1" />
               </div>
               <div>
-                <Label htmlFor="jenis_kelamin">Jenis Kelamin *</Label>
+                <Label htmlFor="jenis_kelamin_edit">Jenis Kelamin *</Label> {/* ID unik */}
                  <Select value={editFormData.jenis_kelamin} onValueChange={(value) => handleEditSelectChange('jenis_kelamin', value)} required>
-                    <SelectTrigger className="w-full mt-1"> <SelectValue placeholder="Pilih Jenis Kelamin" /> </SelectTrigger>
+                    <SelectTrigger className="w-full mt-1" id="jenis_kelamin_edit"> <SelectValue placeholder="Pilih Jenis Kelamin" /> </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="L">Laki-laki</SelectItem>
                         <SelectItem value="P">Perempuan</SelectItem>
@@ -450,15 +515,15 @@ export default function DataAnakPage() {
                 </Select>
               </div>
                <div>
-                <Label htmlFor="anak_ke">Anak Ke-</Label>
+                <Label htmlFor="anak_ke_edit">Anak Ke-</Label> {/* ID unik */}
                 <Input type="number" id="anak_ke" value={editFormData.anak_ke} onChange={handleEditFormChange} placeholder="(Opsional)" min="1" className="mt-1"/>
               </div>
               <div>
-                <Label htmlFor="berat_lahir_kg">Berat Lahir (kg)</Label>
+                <Label htmlFor="berat_lahir_kg_edit">Berat Lahir (kg)</Label> {/* ID unik */}
                 <Input type="number" step="0.01" id="berat_lahir_kg" value={editFormData.berat_lahir_kg} onChange={handleEditFormChange} placeholder="(Opsional)" min="0" className="mt-1"/>
               </div>
               <div>
-                <Label htmlFor="tinggi_lahir_cm">Tinggi Lahir (cm)</Label>
+                <Label htmlFor="tinggi_lahir_cm_edit">Tinggi Lahir (cm)</Label> {/* ID unik */}
                 <Input type="number" step="0.1" id="tinggi_lahir_cm" value={editFormData.tinggi_lahir_cm} onChange={handleEditFormChange} placeholder="(Opsional)" min="0" className="mt-1"/>
               </div>
             {/* Error Message Modal */}
@@ -467,7 +532,7 @@ export default function DataAnakPage() {
                <DialogClose asChild>
                   <Button type="button" variant="outline" className="cursor-pointer">Batal</Button>
                </DialogClose>
-              <Button type="submit" disabled={isLoading} className="cursor-pointer">
+              <Button type="submit" disabled={isLoading || isFetchingIbu} className="cursor-pointer">
                 {isLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
               </Button>
             </DialogFooter>
