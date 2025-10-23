@@ -1412,7 +1412,7 @@ func main() {
 				query := `SELECT
 							p.id, p.id_anak, p.tanggal_pemeriksaan, p.bb_kg, p.tb_cm, p.lk_cm, p.ll_cm,
 							p.status_gizi, p.saran, p.id_kader_pencatat, p.created_at, p.updated_at,
-							a.nama_anak, k.nama_lengkap AS nama_kader, a.nik_anak, i.nama_lengkap AS nama_ibu,
+							a.nama_anak, k.nama_lengkap AS nama_kader, a.nik	_anak, i.nama_lengkap AS nama_ibu,
 							i.nik AS nik_ibu
 						FROM perkembangan p
 						JOIN anak a ON p.id_anak = a.id
