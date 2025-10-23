@@ -226,6 +226,14 @@ type UpdateRiwayatPayload struct {
 	Catatan           *string `json:"catatan"`
 }
 
+// --- Structs untuk Laporan ---
+type LaporanPerkembangan struct {
+	Perkembangan // Embed
+}
+type LaporanImunisasi struct {
+	RiwayatImunisasi // Embed
+}
+
 // --- Fungsi JWT dan Middleware ---
 func generateJWT(kaderID int) (string, error) {
 	secretKey := os.Getenv("JWT_SECRET_KEY")
@@ -1286,6 +1294,204 @@ func main() {
 				return
 			}
 			c.JSON(http.StatusOK, gin.H{"message": "Riwayat imunisasi berhasil dihapus!"})
+		})
+		// --- ENDPOINTS LAPORAN ---
+		authenticated.GET("/laporan/:tipe", func(c *gin.Context) {
+			tipeLaporan := c.Param("tipe")
+			tanggalMulai := c.Query("start")
+			tanggalAkhir := c.Query("end")
+			var startDate, endDate time.Time
+			var errStart, errEnd error
+			layout := "2006-01-02"
+			if tanggalMulai != "" {
+				startDate, errStart = time.Parse(layout, tanggalMulai)
+			}
+			if tanggalAkhir != "" {
+				endDate, errEnd = time.Parse(layout, tanggalAkhir)
+				endDate = endDate.AddDate(0, 0, 1)
+			}
+			if errStart != nil || errEnd != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal tidak valid (YYYY-MM-DD)"})
+				return
+			}
+			log.Printf("Fetching report type: %s, Start: %s, End: %s", tipeLaporan, tanggalMulai, tanggalAkhir)
+
+			switch tipeLaporan {
+			case "wali":
+				var daftarIbu []Ibu
+				query := `SELECT id, nama_lengkap, nik, no_telepon, alamat, id_kader_pendaftar, created_at, updated_at FROM ibu`
+				var args []interface{}
+				var conditions []string
+				argCounter := 1
+				if !startDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argCounter))
+					args = append(args, startDate)
+					argCounter++
+				}
+				if !endDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("created_at < $%d", argCounter))
+					args = append(args, endDate)
+					argCounter++
+				}
+				if len(conditions) > 0 {
+					query += " WHERE " + strings.Join(conditions, " AND ")
+				}
+				query += " ORDER BY created_at DESC"
+				rows, err := dbpool.Query(context.Background(), query, args...)
+				if err != nil {
+					log.Printf("ERROR querying report ibu: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data."})
+					return
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var i Ibu
+					if err := rows.Scan(&i.ID, &i.NamaLengkap, &i.NIK, &i.NoTelepon, &i.Alamat, &i.IdKaderPendaftar, &i.CreatedAt, &i.UpdatedAt); err != nil {
+						log.Printf("ERROR scanning report ibu: %v", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memindai data."})
+						return
+					}
+					daftarIbu = append(daftarIbu, i)
+				}
+				if err := rows.Err(); err != nil {
+					log.Printf("ERROR iterating report ibu: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses."})
+					return
+				}
+				c.JSON(http.StatusOK, daftarIbu)
+
+			case "anak":
+				var daftarAnak []Anak
+				query := `SELECT a.id, a.id_ibu, a.nama_anak, a.nik_anak, a.tanggal_lahir, a.jenis_kelamin, a.anak_ke, a.berat_lahir_kg, a.tinggi_lahir_cm, a.created_at, a.updated_at, i.nama_lengkap AS nama_ibu FROM anak a LEFT JOIN ibu i ON a.id_ibu = i.id`
+				var args []interface{}
+				var conditions []string
+				argCounter := 1
+				if !startDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("a.created_at >= $%d", argCounter))
+					args = append(args, startDate)
+					argCounter++
+				}
+				if !endDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("a.created_at < $%d", argCounter))
+					args = append(args, endDate)
+					argCounter++
+				}
+				if len(conditions) > 0 {
+					query += " WHERE " + strings.Join(conditions, " AND ")
+				}
+				query += " ORDER BY a.created_at DESC"
+				rows, err := dbpool.Query(context.Background(), query, args...)
+				if err != nil {
+					log.Printf("ERROR querying report anak: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data."})
+					return
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var a Anak
+					if err := rows.Scan(&a.ID, &a.IdIbu, &a.NamaAnak, &a.NikAnak, &a.TanggalLahir, &a.JenisKelamin, &a.AnakKe, &a.BeratLahirKg, &a.TinggiLahirCm, &a.CreatedAt, &a.UpdatedAt, &a.NamaIbu); err != nil {
+						log.Printf("ERROR scanning report anak: %v", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memindai data."})
+						return
+					}
+					daftarAnak = append(daftarAnak, a)
+				}
+				if err := rows.Err(); err != nil {
+					log.Printf("ERROR iterating report anak: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses."})
+					return
+				}
+				c.JSON(http.StatusOK, daftarAnak)
+
+			case "perkembangan":
+				var daftarPerkembangan []LaporanPerkembangan
+				query := `SELECT p.id, p.id_anak, p.tanggal_pemeriksaan, p.bb_kg, p.tb_cm, p.lk_cm, p.ll_cm, p.status_gizi, p.saran, p.id_kader_pencatat, p.created_at, p.updated_at, a.nama_anak, k.nama_lengkap AS nama_kader, a.nik_anak, i.nama_lengkap AS nama_ibu FROM perkembangan p JOIN anak a ON p.id_anak = a.id JOIN ibu i ON a.id_ibu = i.id LEFT JOIN kader k ON p.id_kader_pencatat = k.id`
+				var args []interface{}
+				var conditions []string
+				argCounter := 1
+				if !startDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("p.tanggal_pemeriksaan >= $%d", argCounter))
+					args = append(args, startDate)
+					argCounter++
+				}
+				if !endDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("p.tanggal_pemeriksaan < $%d", argCounter))
+					args = append(args, endDate)
+					argCounter++
+				}
+				if len(conditions) > 0 {
+					query += " WHERE " + strings.Join(conditions, " AND ")
+				}
+				query += " ORDER BY p.tanggal_pemeriksaan DESC, a.nama_anak ASC"
+				rows, err := dbpool.Query(context.Background(), query, args...)
+				if err != nil {
+					log.Printf("ERROR querying report perkembangan: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data."})
+					return
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var p LaporanPerkembangan
+					if err := rows.Scan(&p.ID, &p.IdAnak, &p.TanggalPemeriksaan, &p.BbKg, &p.TbCm, &p.LkCm, &p.LlCm, &p.StatusGizi, &p.Saran, &p.IdKaderPencatat, &p.CreatedAt, &p.UpdatedAt, &p.NamaAnak, &p.NamaKader, &p.NikAnak, &p.NamaIbu); err != nil {
+						log.Printf("ERROR scanning report perkembangan: %v", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memindai data."})
+						return
+					}
+					daftarPerkembangan = append(daftarPerkembangan, p)
+				}
+				if err := rows.Err(); err != nil {
+					log.Printf("ERROR iterating report perkembangan: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses."})
+					return
+				}
+				c.JSON(http.StatusOK, daftarPerkembangan)
+
+			case "imunisasi":
+				var daftarImunisasi []LaporanImunisasi
+				query := `SELECT r.id, r.id_anak, r.id_master_imunisasi, r.id_kader_pencatat, r.id_kader_updater, r.tanggal_imunisasi, r.catatan, r.created_at, r.updated_at, a.nama_anak, a.nik_anak, m.nama_imunisasi, kp.nama_lengkap AS nama_kader, ku.nama_lengkap AS nama_kader_updater FROM riwayat_imunisasi r JOIN anak a ON r.id_anak = a.id JOIN master_imunisasi m ON r.id_master_imunisasi = m.id LEFT JOIN kader kp ON r.id_kader_pencatat = kp.id LEFT JOIN kader ku ON r.id_kader_updater = ku.id`
+				var args []interface{}
+				var conditions []string
+				argCounter := 1
+				if !startDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("r.tanggal_imunisasi >= $%d", argCounter))
+					args = append(args, startDate)
+					argCounter++
+				}
+				if !endDate.IsZero() {
+					conditions = append(conditions, fmt.Sprintf("r.tanggal_imunisasi < $%d", argCounter))
+					args = append(args, endDate)
+					argCounter++
+				}
+				if len(conditions) > 0 {
+					query += " WHERE " + strings.Join(conditions, " AND ")
+				}
+				query += " ORDER BY r.tanggal_imunisasi DESC, a.nama_anak ASC"
+				rows, err := dbpool.Query(context.Background(), query, args...)
+				if err != nil {
+					log.Printf("ERROR querying report imunisasi: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data."})
+					return
+				}
+				defer rows.Close()
+				for rows.Next() {
+					var r LaporanImunisasi
+					if err := rows.Scan(&r.ID, &r.IdAnak, &r.IdMasterImunisasi, &r.IdKaderPencatat, &r.IdKaderUpdater, &r.TanggalDiberikan, &r.Catatan, &r.CreatedAt, &r.UpdatedAt, &r.NamaAnak, &r.NikAnak, &r.NamaImunisasi, &r.NamaKader, &r.NamaKaderUpdater); err != nil {
+						log.Printf("ERROR scanning report imunisasi: %v", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memindai data."})
+						return
+					}
+					daftarImunisasi = append(daftarImunisasi, r)
+				}
+				if err := rows.Err(); err != nil {
+					log.Printf("ERROR iterating report imunisasi: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses."})
+					return
+				}
+				c.JSON(http.StatusOK, daftarImunisasi)
+
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe laporan tidak valid."})
+			}
 		})
 	} // Akhir dari grup 'authenticated'
 
