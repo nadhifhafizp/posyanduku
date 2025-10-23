@@ -1404,8 +1404,20 @@ func main() {
 				c.JSON(http.StatusOK, daftarAnak)
 
 			case "perkembangan":
-				var daftarPerkembangan []LaporanPerkembangan
-				query := `SELECT p.id, p.id_anak, p.tanggal_pemeriksaan, p.bb_kg, p.tb_cm, p.lk_cm, p.ll_cm, p.status_gizi, p.saran, p.id_kader_pencatat, p.created_at, p.updated_at, a.nama_anak, k.nama_lengkap AS nama_kader, a.nik_anak, i.nama_lengkap AS nama_ibu FROM perkembangan p JOIN anak a ON p.id_anak = a.id JOIN ibu i ON a.id_ibu = i.id LEFT JOIN kader k ON p.id_kader_pencatat = k.id`
+				type LaporanPerkembanganDetail struct {
+					Perkembangan         // Embed struct Perkembangan yang sudah ada
+					NikIbu       *string `json:"nik_ibu,omitempty"` // Tambahkan NIK Ibu
+				}
+				var daftarPerkembangan []LaporanPerkembanganDetail
+				query := `SELECT
+							p.id, p.id_anak, p.tanggal_pemeriksaan, p.bb_kg, p.tb_cm, p.lk_cm, p.ll_cm,
+							p.status_gizi, p.saran, p.id_kader_pencatat, p.created_at, p.updated_at,
+							a.nama_anak, k.nama_lengkap AS nama_kader, a.nik_anak, i.nama_lengkap AS nama_ibu,
+							i.nik AS nik_ibu
+						FROM perkembangan p
+						JOIN anak a ON p.id_anak = a.id
+						JOIN ibu i ON a.id_ibu = i.id
+						LEFT JOIN kader k ON p.id_kader_pencatat = k.id`
 				var args []interface{}
 				var conditions []string
 				argCounter := 1
@@ -1423,6 +1435,7 @@ func main() {
 					query += " WHERE " + strings.Join(conditions, " AND ")
 				}
 				query += " ORDER BY p.tanggal_pemeriksaan DESC, a.nama_anak ASC"
+
 				rows, err := dbpool.Query(context.Background(), query, args...)
 				if err != nil {
 					log.Printf("ERROR querying report perkembangan: %v", err)
@@ -1431,8 +1444,14 @@ func main() {
 				}
 				defer rows.Close()
 				for rows.Next() {
-					var p LaporanPerkembangan
-					if err := rows.Scan(&p.ID, &p.IdAnak, &p.TanggalPemeriksaan, &p.BbKg, &p.TbCm, &p.LkCm, &p.LlCm, &p.StatusGizi, &p.Saran, &p.IdKaderPencatat, &p.CreatedAt, &p.UpdatedAt, &p.NamaAnak, &p.NamaKader, &p.NikAnak, &p.NamaIbu); err != nil {
+					var p LaporanPerkembanganDetail // Gunakan struct baru
+					// Sesuaikan Scan untuk menyertakan nik_ibu di akhir
+					if err := rows.Scan(
+						&p.ID, &p.IdAnak, &p.TanggalPemeriksaan, &p.BbKg, &p.TbCm, &p.LkCm, &p.LlCm,
+						&p.StatusGizi, &p.Saran, &p.IdKaderPencatat, &p.CreatedAt, &p.UpdatedAt,
+						&p.NamaAnak, &p.NamaKader, &p.NikAnak, &p.NamaIbu,
+						&p.NikIbu, // Scan NIK Ibu
+					); err != nil {
 						log.Printf("ERROR scanning report perkembangan: %v", err)
 						c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memindai data."})
 						return

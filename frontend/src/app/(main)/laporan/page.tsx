@@ -15,7 +15,7 @@ import * as XLSX from 'xlsx';
 // Tipe data (bisa impor dari file lain atau definisikan ulang)
 interface Ibu { id: number; nama_lengkap: string | null; nik: string | null; no_telepon: string | null; alamat: string | null; created_at: string; updated_at: string | null; }
 interface Anak { id: number; nama_anak: string; nama_ibu: string | null; nik_anak: string | null; tanggal_lahir: string; jenis_kelamin: string; anak_ke: number | null; berat_lahir_kg: number | null; tinggi_lahir_cm: number | null; created_at: string; updated_at: string | null; }
-interface Perkembangan { id: number; nama_anak: string; tanggal_pemeriksaan: string; bb_kg: number | null; tb_cm: number | null; lk_cm: number | null; ll_cm: number | null; status_gizi: string | null; saran: string | null; nama_kader: string | null; created_at: string; updated_at: string | null;}
+interface Perkembangan { id: number; nama_anak: string; nik_anak: string | null; nama_ibu: string | null; nik_ibu: string | null; tanggal_pemeriksaan: string; bb_kg: number | null; tb_cm: number | null; lk_cm: number | null; ll_cm: number | null; status_gizi: string | null; saran: string | null; nama_kader: string | null; created_at: string; updated_at: string | null;}
 interface RiwayatImunisasi { id: number; nama_anak: string; nama_imunisasi: string; tanggal_imunisasi: string; catatan: string | null; nama_kader: string | null; nama_kader_updater: string | null; created_at: string; updated_at: string | null;}
 
 type LaporanData = Ibu[] | Anak[] | Perkembangan[] | RiwayatImunisasi[];
@@ -208,82 +208,122 @@ export default function LaporanPage() {
   };
 
   // Fungsi untuk render tabel berdasarkan tipe laporan
-  const renderTable = () => {
-    if (isLoading) {
-      return <div className="text-center p-8 text-gray-500">Memuat data laporan...</div>;
-    }
-    // Tampilkan error HANYA jika tidak sedang loading
-    if (error && !isLoading) {
-      return <div className="text-center p-8 text-red-500">{error}</div>;
-    }
-     // Tampilkan pesan jika tidak loading, tidak error, tapi data kosong
-     if (!isLoading && !error && dataLaporan.length === 0) {
-      return <div className="text-center p-8 text-gray-500">Tidak ada data ditemukan untuk filter yang dipilih.</div>;
-    }
+  // Fungsi untuk render tabel berdasarkan tipe laporan
+    const renderTable = () => {
+      if (isLoading) {
+        return <div className="text-center p-8 text-gray-500">Memuat data laporan...</div>;
+      }
+      // Tampilkan error HANYA jika tidak sedang loading
+      if (error && !isLoading) {
+        return <div className="text-center p-8 text-red-500">{error}</div>;
+      }
+      // Tampilkan pesan jika tidak loading, tidak error, tapi data kosong
+      if (!isLoading && !error && dataLaporan.length === 0) {
+        return <div className="text-center p-8 text-gray-500">Tidak ada data ditemukan untuk filter yang dipilih.</div>;
+      }
 
-    switch (tipeLaporan) {
-      case 'wali':
-        return (
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600 uppercase"><tr><th className="px-6 py-3">Nama</th><th className="px-6 py-3">NIK</th><th className="px-6 py-3">Telepon</th><th className="px-6 py-3">Alamat</th><th className="px-6 py-3">Tgl Daftar</th></tr></thead>
-            <tbody className="text-gray-700">
-              {(dataLaporan as Ibu[]).map(d => (
-                <tr key={d.id} className="border-b hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium">{d.nama_lengkap || '-'}</td><td className="px-6 py-4">{d.nik || '-'}</td><td className="px-6 py-4">{d.no_telepon || '-'}</td><td className="px-6 py-4 truncate max-w-xs">{d.alamat || '-'}</td><td className="px-6 py-4 whitespace-nowrap">{formatTanggal(d.created_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        );
-      case 'anak':
+      switch (tipeLaporan) {
+        case 'wali':
+          return (
+            <table className="w-full text-sm text-left">
+              {/* PERUBAHAN: Tambah kolom Tgl Daftar */}
+              <thead className="bg-gray-50 text-gray-600 uppercase whitespace-nowrap"><tr><th className="px-6 py-3">Nama</th><th className="px-6 py-3">NIK</th><th className="px-6 py-3">Telepon</th><th className="px-6 py-3">Alamat</th><th className="px-6 py-3">Tgl Daftar</th></tr></thead>
+              <tbody className="text-gray-700">
+                {(dataLaporan as Ibu[]).map(d => (
+                  <tr key={d.id} className="border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium">{d.nama_lengkap || '-'}</td>
+                    <td className="px-6 py-4">{d.nik || '-'}</td>
+                    <td className="px-6 py-4">{d.no_telepon || '-'}</td>
+                    <td className="px-6 py-4 truncate max-w-xs">{d.alamat || '-'}</td>
+                    {/* PERUBAHAN: Gunakan formatDisplayTanggal */}
+                    <td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        case 'anak':
+          return (
+            <table className="w-full text-sm text-left">
+              {/* PERUBAHAN: Tambah kolom Tgl Daftar */}
+              <thead className="bg-gray-50 text-gray-600 uppercase whitespace-nowrap"><tr><th className="px-6 py-3">Nama Anak</th><th className="px-6 py-3">Nama Ibu</th><th className="px-6 py-3">NIK Anak</th><th className="px-6 py-3">Tgl Lahir</th><th className="px-6 py-3">JK</th><th className="px-6 py-3">Anak Ke</th><th className="px-6 py-3">BB Lahir</th><th className="px-6 py-3">TB Lahir</th><th className="px-6 py-3">Tgl Daftar</th></tr></thead>
+              <tbody className="text-gray-700">
+                {(dataLaporan as Anak[]).map(d => (
+                  <tr key={d.id} className="border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium">{d.nama_anak || '-'}</td>
+                    <td className="px-6 py-4">{d.nama_ibu || '-'}</td>
+                    <td className="px-6 py-4">{d.nik_anak || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.tanggal_lahir)}</td>
+                    <td className="px-6 py-4">{d.jenis_kelamin}</td>
+                    <td className="px-6 py-4 text-center">{d.anak_ke ?? '-'}</td>
+                    <td className="px-6 py-4 text-center">{d.berat_lahir_kg ?? '-'}</td>
+                    <td className="px-6 py-4 text-center">{d.tinggi_lahir_cm ?? '-'}</td>
+                    {/* PERUBAHAN: Tambah kolom Tgl Daftar */}
+                    <td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        case 'perkembangan':
          return (
           <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600 uppercase whitespace-nowrap"><tr><th className="px-6 py-3">Nama Anak</th><th className="px-6 py-3">Nama Ibu</th><th className="px-6 py-3">NIK Anak</th><th className="px-6 py-3">Tgl Lahir</th><th className="px-6 py-3">JK</th><th className="px-6 py-3">Anak Ke</th><th className="px-6 py-3">BB Lahir</th><th className="px-6 py-3">TB Lahir</th></tr></thead>
-            <tbody className="text-gray-700">
-              {(dataLaporan as Anak[]).map(d => (
-                <tr key={d.id} className="border-b hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium">{d.nama_anak || '-'}</td><td className="px-6 py-4">{d.nama_ibu || '-'}</td><td className="px-6 py-4">{d.nik_anak || '-'}</td><td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.tanggal_lahir)}</td><td className="px-6 py-4">{d.jenis_kelamin}</td>
-                  <td className="px-6 py-4 text-center">{d.anak_ke ?? '-'}</td><td className="px-6 py-4 text-center">{d.berat_lahir_kg ?? '-'}</td><td className="px-6 py-4 text-center">{d.tinggi_lahir_cm ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        );
-       case 'perkembangan':
-         return (
-          <table className="w-full text-sm text-left">
+             {/* PERUBAHAN: Tambahkan header NIK Anak, Nama Ibu, NIK Ibu */}
              <thead className="bg-gray-50 text-gray-600 uppercase whitespace-nowrap">
                <tr>
-                 <th className="px-6 py-3">Nama Anak</th><th className="px-6 py-3">Tgl Periksa</th><th className="px-6 py-3">BB(kg)</th><th className="px-6 py-3">TB(cm)</th><th className="px-6 py-3">LK(cm)</th><th className="px-6 py-3">LL(cm)</th><th className="px-6 py-3">Status Gizi</th><th className="px-6 py-3">Saran</th><th className="px-6 py-3">Kader</th>
+                 <th className="px-6 py-3">Nama Anak</th>
+                 <th className="px-6 py-3">NIK Anak</th> 
+                 <th className="px-6 py-3">Nama Ibu</th> 
+                 <th className="px-6 py-3">NIK Ibu</th> 
+                 <th className="px-6 py-3">Tgl Periksa</th>
+                 <th className="px-6 py-3">BB(kg)</th>
+                 <th className="px-6 py-3">TB(cm)</th>
+                 <th className="px-6 py-3">LK(cm)</th>
+                 <th className="px-6 py-3">LL(cm)</th>
+                 <th className="px-6 py-3">Status Gizi</th>
+                 <th className="px-6 py-3">Saran</th>
+                 <th className="px-6 py-3">Kader</th>
                </tr>
              </thead>
              <tbody className="text-gray-700">
                 {(dataLaporan as Perkembangan[]).map(d => (
                  <tr key={d.id} className="border-b hover:bg-gray-50">
-                   <td className="px-6 py-4 font-medium">{d.nama_anak || '-'}</td><td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.tanggal_pemeriksaan)}</td><td className="px-6 py-4 text-center">{d.bb_kg ?? '-'}</td><td className="px-6 py-4 text-center">{d.tb_cm ?? '-'}</td><td className="px-6 py-4 text-center">{d.lk_cm ?? '-'}</td><td className="px-6 py-4 text-center">{d.ll_cm ?? '-'}</td><td className="px-6 py-4">{d.status_gizi || '-'}</td><td className="px-6 py-4 truncate max-w-xs">{d.saran || '-'}</td><td className="px-6 py-4">{d.nama_kader || '-'}</td>
+                   <td className="px-6 py-4 font-medium">{d.nama_anak || '-'}</td>
+                   <td className="px-6 py-4">{d.nik_anak || '-'}</td> {/* Tambah Data */}
+                   <td className="px-6 py-4">{d.nama_ibu || '-'}</td> {/* Tambah Data */}
+                   <td className="px-6 py-4">{d.nik_ibu || '-'}</td> {/* Tambah Data */}
+                   <td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.tanggal_pemeriksaan)}</td>
+                   <td className="px-6 py-4 text-center">{d.bb_kg ?? '-'}</td>
+                   <td className="px-6 py-4 text-center">{d.tb_cm ?? '-'}</td>
+                   <td className="px-6 py-4 text-center">{d.lk_cm ?? '-'}</td>
+                   <td className="px-6 py-4 text-center">{d.ll_cm ?? '-'}</td>
+                   <td className="px-6 py-4">{d.status_gizi || '-'}</td>
+                   <td className="px-6 py-4 truncate max-w-xs">{d.saran || '-'}</td>
+                   <td className="px-6 py-4">{d.nama_kader || '-'}</td>
                  </tr>
                ))}
             </tbody>
            </table>
         );
-       case 'imunisasi':
-          return (
-            <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-600 uppercase whitespace-nowrap"><tr><th className="px-6 py-3">Nama Anak</th><th className="px-6 py-3">Imunisasi</th><th className="px-6 py-3">Tgl Diberikan</th><th className="px-6 py-3">Catatan</th><th className="px-6 py-3">Kader</th></tr></thead>
-              <tbody className="text-gray-700">
-                {(dataLaporan as RiwayatImunisasi[]).map(d => (
-                 <tr key={d.id} className="border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium">{d.nama_anak || '-'}</td><td className="px-6 py-4">{d.nama_imunisasi || '-'}</td><td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.tanggal_imunisasi)}</td><td className="px-6 py-4 truncate max-w-xs">{d.catatan || '-'}</td><td className="px-6 py-4">{d.nama_kader || '-'}</td>
-                 </tr>
-               ))}
-             </tbody>
-           </table>
-        );
-      default:
-        // Jangan tampilkan pesan "Pilih tipe laporan" jika sedang loading
-        return !isLoading ? <div className="text-center p-8 text-gray-500">Pilih tipe laporan dan terapkan filter untuk melihat data.</div> : null;
-    }
-  };
+        case 'imunisasi':
+            // Tidak ada perubahan di sini, sudah benar
+            return (
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-600 uppercase whitespace-nowrap"><tr><th className="px-6 py-3">Nama Anak</th><th className="px-6 py-3">Imunisasi</th><th className="px-6 py-3">Tgl Diberikan</th><th className="px-6 py-3">Catatan</th><th className="px-6 py-3">Kader</th></tr></thead>
+                <tbody className="text-gray-700">
+                  {(dataLaporan as RiwayatImunisasi[]).map(d => (
+                  <tr key={d.id} className="border-b hover:bg-gray-50">
+                      <td className="px-6 py-4 font-medium">{d.nama_anak || '-'}</td><td className="px-6 py-4">{d.nama_imunisasi || '-'}</td><td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.tanggal_imunisasi)}</td><td className="px-6 py-4 truncate max-w-xs">{d.catatan || '-'}</td><td className="px-6 py-4">{d.nama_kader || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
+        default:
+          // Jangan tampilkan pesan "Pilih tipe laporan" jika sedang loading
+          return !isLoading ? <div className="text-center p-8 text-gray-500">Pilih tipe laporan dan terapkan filter untuk melihat data.</div> : null;
+      }
+    };
 
    // Render loading auth atau null jika belum login (redirect sedang proses)
    if (isLoadingAuth) {
