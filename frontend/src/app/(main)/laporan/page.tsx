@@ -174,7 +174,11 @@ export default function LaporanPage() {
             case 'perkembangan':
                  sheetName = "Data Perkembangan";
                  dataToExport = (dataLaporan as Perkembangan[]).map(d => ({
-                    "Nama Anak": d.nama_anak || '-', "Tgl Periksa": formatDisplayTanggal(d.tanggal_pemeriksaan),
+                    "Nama Anak": d.nama_anak || '-',
+                    "NIK Anak": d.nik_anak || '-', // Kolom NIK Anak
+                    "Nama Ibu": d.nama_ibu || '-', // Kolom Nama Ibu
+                    "NIK Ibu": d.nik_ibu || '-', // Kolom NIK Ibu
+                    "Tgl Periksa": formatDisplayTanggal(d.tanggal_pemeriksaan),
                     "BB (kg)": d.bb_kg ?? '-', "TB (cm)": d.tb_cm ?? '-', "LK (cm)": d.lk_cm ?? '-', "LL (cm)": d.ll_cm ?? '-',
                     "Status Gizi": d.status_gizi || '-', "Saran": d.saran || '-', "Kader Pencatat": d.nama_kader || '-'
                 }));
@@ -289,9 +293,9 @@ export default function LaporanPage() {
                 {(dataLaporan as Perkembangan[]).map(d => (
                  <tr key={d.id} className="border-b hover:bg-gray-50">
                    <td className="px-6 py-4 font-medium">{d.nama_anak || '-'}</td>
-                   <td className="px-6 py-4">{d.nik_anak || '-'}</td> {/* Tambah Data */}
-                   <td className="px-6 py-4">{d.nama_ibu || '-'}</td> {/* Tambah Data */}
-                   <td className="px-6 py-4">{d.nik_ibu || '-'}</td> {/* Tambah Data */}
+                   <td className="px-6 py-4">{d.nik_anak || '-'}</td>
+                   <td className="px-6 py-4">{d.nama_ibu || '-'}</td>
+                   <td className="px-6 py-4">{d.nik_ibu || '-'}</td> 
                    <td className="px-6 py-4 whitespace-nowrap">{formatDisplayTanggal(d.tanggal_pemeriksaan)}</td>
                    <td className="px-6 py-4 text-center">{d.bb_kg ?? '-'}</td>
                    <td className="px-6 py-4 text-center">{d.tb_cm ?? '-'}</td>
