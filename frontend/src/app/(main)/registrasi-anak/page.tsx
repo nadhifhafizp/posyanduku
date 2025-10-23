@@ -152,11 +152,9 @@ export default function DataAnakPage() {
                 router.push('/login');
             }
        };
-       if (!isFetching && !isFetchingIbu) { // Cek setelah fetch awal selesai
             checkAuthAndRedirect();
-       }
     }
-  }, [isLoggedIn, isFetching, isFetchingIbu, fetchAnak, fetchIbuOptions, router]); // Tambahkan dependensi
+  }, [isLoggedIn, fetchAnak, fetchIbuOptions, router]); // Tambahkan dependensi
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;

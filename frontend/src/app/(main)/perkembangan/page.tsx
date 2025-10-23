@@ -164,11 +164,9 @@ export default function DataPerkembanganPage() {
                  router.push('/login');
             }
        };
-       if (!isFetching && !isFetchingAnak) { // Cek setelah fetch awal selesai
              checkAuthAndRedirect();
-       }
     }
-  }, [isLoggedIn, isFetching, isFetchingAnak, fetchPerkembangan, fetchAnakOptions, router]);
+  }, [isLoggedIn, fetchPerkembangan, fetchAnakOptions, router]);
 
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {

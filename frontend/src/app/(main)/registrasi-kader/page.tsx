@@ -125,11 +125,9 @@ export default function DataKaderPage() {
                 router.push('/login');
             }
        };
-       if (!isFetching) { // Cek setelah fetch awal selesai
              checkAuthAndRedirect();
-       }
     }
-  }, [isLoggedIn, isFetching, fetchKader, router]); // Tambahkan dependensi
+  }, [isLoggedIn, fetchKader, router]); // Tambahkan dependensi
 
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
