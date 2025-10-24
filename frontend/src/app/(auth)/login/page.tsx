@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import logoPosyandu from '@/img/posyanduku.png'; // File lokal dihapus untuk stabilitas
+import Image from 'next/image';
+import logoPosyandu from '@/img/posyanduku.png'; 
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
@@ -58,7 +59,10 @@ export default function LoginPage() {
         {/* Kolom Kiri Logo (Menggunakan Placeholder SVG) */}
         <div className="hidden md:flex flex-1 flex-col items-center text-center border-r border-slate-200 pr-8">
           <div className="logo w-64 h-64 mb-4 flex items-center justify-center">
-          <img src={logoPosyandu.src} alt="Logo Posyandu" className="w-64 h-64 object-contain" />
+          <Image
+            src={logoPosyandu} // Langsung gunakan objek import
+            alt="Logo Posyandu" width={256} height={256} className="object-contain" priority 
+          />
         </div>
           <h2 className="text-2xl font-semibold text-cyan-900">POSYANDUKU</h2>
           <p className="text-sm font-medium tracking-wider text-cyan-700">Sistem Manajemen Posyandu</p>
