@@ -1,9 +1,10 @@
+// src/app/(auth)/login/page.tsx
 'use client';
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import logoPosyandu from '@/img/posyanduku.png'; 
+import logoPosyandu from '@/img/posyanduku.png';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
@@ -20,50 +21,51 @@ export default function LoginPage() {
     setError('');
 
     try {
-        const response = await fetch('http://localhost:8080/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }), // state dari form
-        });
+      const response = await fetch('http://localhost:8080/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (!response.ok) {
-            throw new Error(data.error || 'Login gagal');
-        }
+      if (!response.ok) {
+        throw new Error(data.error || 'Login gagal');
+      }
 
-        // --- INI BAGIAN PENTING YANG HILANG ---
-        // Pastikan Anda menyimpan token ke localStorage
-        // dengan kunci "authToken"
-       if (data.token && data.user && data.user.id && data.user.nama_lengkap) {
-        // Panggil fungsi login dari context
-        login(data.user.id, data.token, data.user.nama_lengkap); 
-
-        // Gunakan router Next.js untuk navigasi (lebih baik dari window.location)
-        router.push('/dashboard'); // Pastikan router sudah diinisialisasi: const router = useRouter();
+      if (data.token && data.user && data.user.id && data.user.nama_lengkap) {
+        login(data.user.id, data.token, data.user.nama_lengkap);
+        router.push('/dashboard');
       } else {
         throw new Error("Token atau data user tidak lengkap dari server.");
       }
-        // --- BATAS BAGIAN PENTING ---
 
-    } catch (err: any) {
-        setError(err.message);
+    } catch (err) { // <-- Perbaikan: Gunakan catch(err)
+      let message = 'Terjadi kesalahan tidak dikenal';
+      if (err instanceof Error) { // <-- Tambahkan type guard
+        message = err.message;
+      }
+      setError(message); // <-- Set error di sini
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-};
+  };
 
   return (
     <div className="bg-gray-100 flex justify-center items-center min-h-screen text-gray-800">
       <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl flex items-center p-4 mx-4">
-        {/* Kolom Kiri Logo (Menggunakan Placeholder SVG) */}
+        {/* Kolom Kiri Logo */}
         <div className="hidden md:flex flex-1 flex-col items-center text-center border-r border-slate-200 pr-8">
           <div className="logo w-64 h-64 mb-4 flex items-center justify-center">
-          <Image
-            src={logoPosyandu} // Langsung gunakan objek import
-            alt="Logo Posyandu" width={256} height={256} className="object-contain" priority 
-          />
-        </div>
+             <Image
+                src={logoPosyandu}
+                alt="Logo Posyandu"
+                width={256}
+                height={256}
+                className="object-contain"
+                priority
+             />
+          </div>
           <h2 className="text-2xl font-semibold text-cyan-900">POSYANDUKU</h2>
           <p className="text-sm font-medium tracking-wider text-cyan-700">Sistem Manajemen Posyandu</p>
         </div>
@@ -92,25 +94,25 @@ export default function LoginPage() {
             </div>
             {/* Input password */}
             <div className="mb-6">
-                <label htmlFor="password" className="block mb-2 font-medium text-gray-700">
-                    Password
-                </label>
-                <input
-                    type="password"
-                    id="password"
-                    placeholder="Masukkan Password"
-                    className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 focus:outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-600/20 transition duration-150"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                />
+              <label htmlFor="password" className="block mb-2 font-medium text-gray-700">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                placeholder="Masukkan Password"
+                className="w-full px-4 py-3 rounded-lg bg-gray-50 border border-gray-300 focus:outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-600/20 transition duration-150"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
 
             {error && <p className="text-red-500 mb-4 font-medium">{error}</p>}
 
-            <button type="submit" 
-                    className="w-full py-3.5 bg-cyan-800 text-white rounded-lg font-semibold text-base shadow-md hover:bg-cyan-700 transition-colors cursor-pointer disabled:bg-slate-400 disabled:cursor-not-allowed" 
-                    disabled={isLoading}>
+            <button type="submit"
+              className="w-full py-3.5 bg-cyan-800 text-white rounded-lg font-semibold text-base shadow-md hover:bg-cyan-700 transition-colors cursor-pointer disabled:bg-slate-400 disabled:cursor-not-allowed"
+              disabled={isLoading}>
               {isLoading ? 'Memproses...' : 'Masuk'}
             </button>
           </form>
