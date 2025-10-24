@@ -3,6 +3,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -93,8 +94,5 @@ func main() {
 	if port == "" {
 		port = "8080" // Default port
 	}
-	log.Printf("Server starting on http://localhost:%s...", port)
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Server failed to run: %v", err)
-	}
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
