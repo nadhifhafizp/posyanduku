@@ -65,7 +65,7 @@ export default function LaporanPage() {
     setIsLoading(true);
     setError('');
     setDataLaporan([]);
-    let url = `http://localhost:8080/api/laporan/${tipeLaporan}`;
+    let url = `/api/laporan/${tipeLaporan}`;
     const params = new URLSearchParams();
     if (tanggalMulai) params.append('start', tanggalMulai);
     if (tanggalAkhir) params.append('end', tanggalAkhir);
