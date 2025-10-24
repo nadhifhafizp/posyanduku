@@ -36,8 +36,8 @@ const formatTanggalISO = (tanggalString: string | null) => {
         const date = new Date(tanggalString);
         if (isNaN(date.getTime())) return '';
         return date.toISOString().split('T')[0];
-    } catch (_e) { // <-- Variabel tidak digunakan
-        console.error("Error parsing date for ISO format:", tanggalString, _e);
+    } catch (_error: unknown) { // <-- Catch unknown error
+        console.error("Error parsing date for ISO format:", tanggalString, _error);
         return '';
     }
 };
@@ -96,12 +96,12 @@ export default function DataAnakPage() {
       if (!response.ok) {
            let errorMsg = 'Gagal mengambil data ibu';
             try { const errData = await response.json(); errorMsg = errData.error || errorMsg; }
-            catch(_e) { errorMsg = await response.text() || errorMsg; }
+            catch(_error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
           throw new Error(errorMsg);
       }
       const data: IbuOption[] = await response.json();
       setDaftarIbuOptions(data || []);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal memuat daftar ibu.';
        if(err instanceof Error) { message = err.message; }
       console.error("Fetch ibu options failed:", message);
@@ -125,7 +125,7 @@ export default function DataAnakPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data anak';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (_jsonError) { errorMsg = await response.text() || errorMsg; }
+        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
         throw new Error(errorMsg);
       }
       const data: Anak[] = await response.json();
@@ -134,7 +134,7 @@ export default function DataAnakPage() {
         tanggal_lahir: formatTanggalISO(anak.tanggal_lahir), // Format ke ISO YYYY-MM-DD
       }));
       setDaftarAnak(formattedData);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Tidak dapat memuat data anak.';
        if(err instanceof Error) { message = err.message; }
       console.error("Fetch anak failed:", message);
@@ -203,7 +203,7 @@ export default function DataAnakPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menambahkan data anak.');
       setSuccess('Data Anak berhasil ditambahkan!'); setFormData({ id_ibu: '', nama_anak: '', nik_anak: '', tanggal_lahir: '', jenis_kelamin: '', anak_ke: '', berat_lahir_kg: '', tinggi_lahir_cm: '' }); fetchAnak(searchQuery);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal menambahkan data anak.';
       if(err instanceof Error) { message = err.message; }
       setError(message);
@@ -233,7 +233,7 @@ export default function DataAnakPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data anak.');
       setSuccess('Data Anak berhasil diperbarui!'); setIsModalOpen(false); fetchAnak(searchQuery);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal memperbarui data anak.';
       if(err instanceof Error) { message = err.message; }
       setError(message); // Show error in modal
@@ -247,7 +247,7 @@ export default function DataAnakPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data anak.');
       setSuccess('Data Anak berhasil dihapus!'); fetchAnak(searchQuery);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal menghapus data anak.';
       if(err instanceof Error) { message = err.message; }
       setError(message);

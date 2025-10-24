@@ -35,8 +35,8 @@ const formatTanggalWaktu = (tanggalString: string | null) => {
         const date = new Date(tanggalString);
         if(isNaN(date.getTime())) return 'Invalid Date';
         return date.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta'});
-    } catch (_e) { // <-- Variabel tidak digunakan
-        console.error("Error formatting date time:", tanggalString, _e);
+    } catch (_error: unknown) { // <-- Catch unknown error
+        console.error("Error formatting date time:", tanggalString, _error);
         return 'Invalid Date';
     }
   };
@@ -72,13 +72,13 @@ export default function DataIbuPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (_jsonError) { errorMsg = await response.text() || errorMsg; } // <-- Variabel tidak digunakan
+        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // <-- Ignored variable
         throw new Error(errorMsg);
       }
       const data: Ibu[] | null = await response.json();
       setDaftarIbu(data || []);
     }
-    catch (err) { // <-- Perbaiki catch
+    catch (err: unknown) { // <-- Catch unknown error
       let message = 'Tidak dapat memuat data wali terdaftar.';
       if(err instanceof Error) { message = err.message; }
       console.error("Fetch failed:", message);
@@ -91,7 +91,8 @@ export default function DataIbuPage() {
     }
   }, [fetchWithAuth]); // <-- Dependensi sudah benar
 
-  const debouncedFetch = useCallback(debounce(fetchIbu, 500), [fetchIbu]); // <-- Dependensi sudah benar
+  // FIX: Added fetchIbu dependency
+  const debouncedFetch = useCallback(debounce(fetchIbu, 500), [fetchIbu]);
 
   // --- useEffect Fetch Data Awal & Redirect ---
   useEffect(() => {
@@ -125,7 +126,7 @@ export default function DataIbuPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menambahkan data.');
       setSuccess('Data Wali berhasil ditambahkan!'); setFormData({ nama_lengkap: '', nik: '', no_telepon: '', alamat: '' }); fetchIbu(searchQuery);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal menambahkan data.';
       if(err instanceof Error) { message = err.message; }
       setError(message);
@@ -147,7 +148,7 @@ export default function DataIbuPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data.');
       setSuccess('Data Wali berhasil diperbarui!'); setIsModalOpen(false); fetchIbu(searchQuery);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal memperbarui data.';
       if(err instanceof Error) { message = err.message; }
       setError(message); // Tampilkan error di modal
@@ -161,7 +162,7 @@ export default function DataIbuPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data.');
       setSuccess('Data Wali berhasil dihapus!'); fetchIbu(searchQuery);
-    } catch (err) { // <-- Perbaiki catch
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal menghapus data.';
       if(err instanceof Error) { message = err.message; }
       setError(message);

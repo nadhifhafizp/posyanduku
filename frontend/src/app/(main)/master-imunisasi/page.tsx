@@ -1,4 +1,4 @@
-// src/app/(main)/perkembangan/page.tsx
+// src/app/(main)/master-imunisasi/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -37,8 +37,8 @@ const formatTanggalISO = (tanggalString: string | null) => {
         const date = new Date(tanggalString);
         if (isNaN(date.getTime())) return '';
         return date.toISOString().split('T')[0];
-    } catch (_e) {
-        console.error("Error parsing date for ISO format:", tanggalString, _e);
+    } catch (_error: unknown) { // Use unknown type for catch
+        console.error("Error parsing date for ISO format:", tanggalString, _error);
         return '';
     }
 };
@@ -96,7 +96,7 @@ export default function DataPerkembanganPage() {
       if (!response.ok) throw new Error('Gagal mengambil daftar anak');
       const data: AnakOption[] = await response.json();
       setDaftarAnakOptions(data || []); // Pastikan array jika null
-    } catch (err) { // <-- Catch error
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal memuat daftar anak untuk pilihan.';
        if(err instanceof Error) { message = err.message; }
       console.error("Fetch anak options failed:", message);
@@ -119,7 +119,7 @@ export default function DataPerkembanganPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data perkembangan';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (_jsonError) { errorMsg = await response.text() || errorMsg; }
+        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore json error variable
         throw new Error(errorMsg);
       }
       const data: Perkembangan[] = await response.json();
@@ -128,7 +128,7 @@ export default function DataPerkembanganPage() {
         tanggal_pemeriksaan: formatTanggalISO(p.tanggal_pemeriksaan), // Format ke ISO YYYY-MM-DD
       }));
       setDaftarPerkembangan(formattedData);
-    } catch (err) { // <-- Catch error
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Tidak dapat memuat data perkembangan.';
        if(err instanceof Error) { message = err.message; }
       console.error("Fetch perkembangan failed:", message);
@@ -141,6 +141,7 @@ export default function DataPerkembanganPage() {
     }
   }, [fetchWithAuth]);
 
+  // FIX: Added fetchPerkembangan dependency
   const debouncedFetch = useCallback(debounce(fetchPerkembangan, 500), [fetchPerkembangan]);
 
   // --- useEffect Fetch Data Awal & Redirect ---
@@ -202,7 +203,7 @@ export default function DataPerkembanganPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menambahkan data perkembangan.');
       setSuccess('Data perkembangan berhasil ditambahkan!'); setFormData({ id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: '' }); fetchPerkembangan(searchQuery);
-    } catch (err) { // <-- Catch error
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal menambahkan data.';
       if(err instanceof Error) { message = err.message; }
       setError(message);
@@ -232,7 +233,7 @@ export default function DataPerkembanganPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data perkembangan.');
       setSuccess('Data perkembangan berhasil diperbarui!'); setIsModalOpen(false); fetchPerkembangan(searchQuery);
-    } catch (err) { // <-- Catch error
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal memperbarui data.';
       if(err instanceof Error) { message = err.message; }
       setError(message); // Tampilkan di modal
@@ -246,7 +247,7 @@ export default function DataPerkembanganPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data perkembangan.');
       setSuccess('Data perkembangan berhasil dihapus!'); fetchPerkembangan(searchQuery);
-    } catch (err) { // <-- Catch error
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal menghapus data.';
       if(err instanceof Error) { message = err.message; }
       setError(message);
@@ -322,4 +323,4 @@ export default function DataPerkembanganPage() {
       </Dialog>
     </>
   );
-} 
+}

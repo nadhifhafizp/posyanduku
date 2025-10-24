@@ -51,7 +51,7 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (.
 
 export default function DataKaderPage() {
   const router = useRouter(); // <-- 4. Inisialisasi router
-  const { isLoggedIn, authToken } = useAuth(); // <-- 5. Gunakan useAuth
+  const { isLoggedIn } = useAuth(); // <-- 5. Gunakan useAuth (authToken removed as unused)
   const fetchWithAuth = useFetchWithAuth(); // <-- 6. Dapatkan fungsi fetch terautentikasi
 
   const [daftarKader, setDaftarKader] = useState<Kader[]>([]);
@@ -95,15 +95,17 @@ export default function DataKaderPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data kader';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (jsonError) { errorMsg = await response.text() || errorMsg; }
+        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignored variable
         throw new Error(errorMsg);
       }
       const data: Kader[] = await response.json();
       setDaftarKader(data);
-    } catch (err: any) {
-      console.error("Fetch kader failed:", err);
-       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
-          setError('Tidak dapat memuat data kader.');
+    } catch (err: unknown) { // Use unknown type
+      let message = 'Tidak dapat memuat data kader.';
+       if(err instanceof Error) { message = err.message; }
+      console.error("Fetch kader failed:", message);
+       if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+          setError(message);
        }
       setDaftarKader([]);
     } finally {
@@ -111,6 +113,7 @@ export default function DataKaderPage() {
     }
   }, [fetchWithAuth]); // <-- Tambah dependensi
 
+  // FIX: Added fetchKader dependency
   const debouncedFetch = useCallback(debounce(fetchKader, 500), [fetchKader]);
 
    // --- useEffect untuk fetch data awal dan redirect ---
@@ -160,8 +163,10 @@ export default function DataKaderPage() {
       setSuccess('Kader baru berhasil ditambahkan!');
       setRegisterFormData({ nama_lengkap: '', nik: '', no_telepon: '', username: '', password: '' });
       fetchKader(searchQuery);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // Use unknown type
+      let message = 'Gagal mendaftarkan kader.';
+      if(err instanceof Error) { message = err.message; }
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -202,8 +207,10 @@ export default function DataKaderPage() {
       setSuccess('Data Kader berhasil diperbarui!');
       setIsEditModalOpen(false);
       fetchKader(searchQuery);
-    } catch (err: any) {
-      setError(err.message); // Tampilkan error di modal edit
+    } catch (err: unknown) { // Use unknown type
+      let message = 'Gagal memperbarui data kader.';
+      if(err instanceof Error) { message = err.message; }
+      setError(message); // Tampilkan error di modal edit
     } finally {
       setIsLoading(false);
     }
@@ -223,8 +230,10 @@ export default function DataKaderPage() {
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data kader.');
       setSuccess('Data Kader berhasil dihapus!');
       fetchKader(searchQuery);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // Use unknown type
+      let message = 'Gagal menghapus data kader.';
+      if(err instanceof Error) { message = err.message; }
+      setError(message);
     }
   };
 
@@ -263,8 +272,10 @@ export default function DataKaderPage() {
       setTimeout(() => {
         setIsPasswordModalOpen(false);
       }, 2000); // Tutup otomatis setelah 2 detik
-    } catch (err: any) {
-      setPasswordError(err.message);
+    } catch (err: unknown) { // Use unknown type
+      let message = 'Gagal mengubah password.';
+      if(err instanceof Error) { message = err.message; }
+      setPasswordError(message);
     } finally {
       setIsPasswordLoading(false);
     }
@@ -279,7 +290,7 @@ export default function DataKaderPage() {
             day: '2-digit', month: 'short', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
         });
-     } catch (e) { return 'Invalid Date';}
+     } catch (_error: unknown) { return 'Invalid Date';} // Ignored variable
    };
 
     // Render loading atau pesan jika belum login

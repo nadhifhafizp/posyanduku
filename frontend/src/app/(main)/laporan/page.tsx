@@ -28,8 +28,8 @@ const formatTanggal = (tanggalString: string | null, includeTime = false) => {
         const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' };
          if (includeTime) { options.hour = '2-digit'; options.minute = '2-digit'; options.hour12 = false; }
         return date.toLocaleString('id-ID', options);
-    } catch(_e) { // <-- Variabel tidak digunakan
-        console.error("Error formatting date:", tanggalString, _e);
+    } catch(_error: unknown) { // <-- Catch unknown error
+        console.error("Error formatting date:", tanggalString, _error);
         return 'Invalid Date';
     }
 };
@@ -39,8 +39,8 @@ const formatDisplayTanggal = (tanggalString: string | null) => {
         const date = new Date(tanggalString.includes('T') ? tanggalString : tanggalString + 'T00:00:00Z');
         if (isNaN(date.getTime())) return tanggalString;
         return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
-      } catch (_e) { // <-- Variabel tidak digunakan
-          console.error("Error formatting display date:", tanggalString, _e);
+      } catch (_error: unknown) { // <-- Catch unknown error
+          console.error("Error formatting display date:", tanggalString, _error);
           return tanggalString;
        }
 };
@@ -78,13 +78,13 @@ export default function LaporanPage() {
       if (!response.ok) {
         let errorMsg = `Gagal mengambil laporan ${tipeLaporan}`;
         try { const errData = await response.json(); errorMsg = errData.error || errorMsg; }
-        catch (_jsonError) { errorMsg = await response.text() || errorMsg; } // <-- Variabel _jsonError tidak digunakan
+        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // <-- Ignored variable
         throw new Error(errorMsg);
       }
       const data = await response.json();
       console.log("Data received:", data);
       setDataLaporan(data || []);
-    } catch (err) { // <-- Tangkap error dengan benar
+    } catch (err: unknown) { // <-- Catch unknown error
       let message = 'Gagal mengambil laporan';
       if(err instanceof Error) { message = err.message; } // Type guard
       console.error("Fetch laporan error:", message);
@@ -132,7 +132,7 @@ export default function LaporanPage() {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
         XLSX.writeFile(workbook, fileName);
-    } catch (err) { // <-- Tangkap error dengan benar
+    } catch (err: unknown) { // <-- Catch unknown error
         let message = "Gagal mengekspor data";
         if(err instanceof Error) { message = err.message; } // Type guard
         console.error("Export failed:", message);
