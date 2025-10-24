@@ -36,7 +36,7 @@ const formatTanggalISO = (tanggalString: string | null) => {
         const date = new Date(tanggalString);
         if (isNaN(date.getTime())) return '';
         return date.toISOString().split('T')[0];
-    } catch (_error: unknown) { // <-- Catch unknown error
+    } catch (_error: unknown) { // Corrected: Added underscore
         console.error("Error parsing date for ISO format:", tanggalString, _error);
         return '';
     }
@@ -85,7 +85,7 @@ export default function DataAnakPage() {
       if (!response.ok) {
            let errorMsg = 'Gagal mengambil data ibu';
             try { const errData = await response.json(); errorMsg = errData.error || errorMsg; }
-            catch(error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
+            catch(_error: unknown) { errorMsg = await response.text() || errorMsg; } // Corrected: Added underscore
           throw new Error(errorMsg);
       }
       const data: IbuOption[] = await response.json();
@@ -95,7 +95,7 @@ export default function DataAnakPage() {
        if(err instanceof Error) { message = err.message; }
       console.error("Fetch ibu options failed:", message);
        if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
-            setError(message);
+            setError(message); // Still set error here if needed outside catch block
        }
        setDaftarIbuOptions([]); // Pastikan state kosong jika error
     } finally {
@@ -114,7 +114,7 @@ export default function DataAnakPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data anak';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
+        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // Corrected: Added underscore
         throw new Error(errorMsg);
       }
       const data: Anak[] = await response.json();
@@ -128,7 +128,7 @@ export default function DataAnakPage() {
        if(err instanceof Error) { message = err.message; }
       console.error("Fetch anak failed:", message);
        if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
-         setError(message);
+         setError(message); // Still set error here if needed outside catch block
        }
       setDaftarAnak([]);
     } finally {
@@ -136,7 +136,7 @@ export default function DataAnakPage() {
     }
   }, [fetchWithAuth]);
 
-  const debouncedFetch = useCallback(debounce(fetchAnak, 500), [fetchAnak]);
+  const debouncedFetch = useCallback(debounce(fetchAnak, 500), [fetchAnak]); // Corrected dependency
 
   // --- useEffect Fetch Data Awal & Redirect ---
    useEffect(() => {

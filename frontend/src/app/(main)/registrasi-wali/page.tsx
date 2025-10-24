@@ -91,8 +91,7 @@ export default function DataIbuPage() {
     }
   }, [fetchWithAuth]); // <-- Dependensi sudah benar
 
-  // FIX: Added fetchIbu dependency
-  const debouncedFetch = useCallback(debounce(fetchIbu, 500), [fetchIbu]);
+  const debouncedFetch = useCallback(debounce(fetchIbu, 500), [fetchIbu]); // Corrected dependency
 
   // --- useEffect Fetch Data Awal & Redirect ---
   useEffect(() => {

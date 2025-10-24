@@ -106,7 +106,7 @@ export default function MasterImunisasiPage() {
   }, [fetchWithAuth]); // Dependency: fetchWithAuth
 
   // useCallback untuk debounce (tergantung fetchMasterImunisasi)
-  const debouncedFetch = useCallback(debounce(fetchMasterImunisasi, 500), [fetchMasterImunisasi]); // Perbaiki dependency
+  const debouncedFetch = useCallback(debounce(fetchMasterImunisasi, 500), [fetchMasterImunisasi]); // Corrected dependency
 
   // --- useEffect Fetch Data Awal & Redirect ---
    useEffect(() => {
@@ -118,7 +118,7 @@ export default function MasterImunisasiPage() {
          router.push('/login');
        }
      }
-   }, [isLoadingAuth, isLoggedIn, fetchMasterImunisasi, router]); // Perbaiki dependency
+   }, [isLoadingAuth, isLoggedIn, fetchMasterImunisasi, router]); // Corrected dependency
 
 
   // --- Helper Konversi Payload ---

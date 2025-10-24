@@ -71,7 +71,7 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (.
 
 export default function DataPerkembanganPage() {
   const router = useRouter(); // <-- 3. Inisialisasi router
-  const { isLoggedIn} = useAuth(); // <-- Gunakan useAuth
+  const { isLoggedIn } = useAuth(); // <-- Gunakan useAuth
   const fetchWithAuth = useFetchWithAuth(); // <-- 4. Dapatkan fungsi fetch terautentikasi
 
   const [daftarPerkembangan, setDaftarPerkembangan] = useState<Perkembangan[]>([]);
@@ -104,16 +104,16 @@ export default function DataPerkembanganPage() {
       if (!response.ok) throw new Error('Gagal mengambil daftar anak');
       const data: AnakOption[] = await response.json();
       setDaftarAnakOptions(data);
-    } catch (err: unknown) {
+    } catch (err: unknown) { // Changed any to unknown
       let message = 'Tidak dapat memuat data anak.';
-      if (err instanceof Error) {message = err.message;}
+      if (err instanceof Error) {message = err.message;} // Type guard
       console.error("Fetch anak options failed:", message);
       if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
         setError(message);
       }
     }finally {
       setIsFetchingAnak(false);
-    } 
+    }
 
   }, [fetchWithAuth]); // <-- Tambah dependensi
 
@@ -141,9 +141,9 @@ export default function DataPerkembanganPage() {
         tanggal_pemeriksaan: p.tanggal_pemeriksaan ? new Date(p.tanggal_pemeriksaan).toISOString().split('T')[0] : '',
       }));
       setDaftarPerkembangan(formattedData);
-    } catch (err: unknown) {
+    } catch (err: unknown) { // Changed any to unknown
       let message = 'Tidak dapat memuat data perkembangan.';
-      if (err instanceof Error) {message = err.message;}
+      if (err instanceof Error) {message = err.message;} // Type guard
       console.error("Fetch perkembangan failed:", message);
       if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
         setError(message);
@@ -153,7 +153,7 @@ export default function DataPerkembanganPage() {
     }
   }, [fetchWithAuth]); // <-- Tambah dependensi
 
-  const debouncedFetch = useCallback(debounce(fetchPerkembangan, 500), [fetchPerkembangan]);
+  const debouncedFetch = useCallback(debounce(fetchPerkembangan, 500), [fetchPerkembangan]); // Corrected dependency
 
   // --- useEffect untuk fetch data awal dan redirect ---
    useEffect(() => {
@@ -181,8 +181,8 @@ export default function DataPerkembanganPage() {
 
    // --- Fungsi Helper Konversi Payload ---
   const preparePayload = (data: PerkembanganFormData) => {
-      const payload: any = {
-          // ...data, // Tidak perlu spread jika field berbeda
+      // Make sure payload properties match expected backend structure if different
+      const payload: { [key: string]: any } = { // Use a more specific type if possible
           id_anak: parseInt(data.id_anak, 10),
           tanggal_pemeriksaan: data.tanggal_pemeriksaan, // Sudah string YYYY-MM-DD
           bb_kg: data.bb_kg === '' ? null : parseFloat(data.bb_kg),
@@ -191,7 +191,6 @@ export default function DataPerkembanganPage() {
           ll_cm: data.ll_cm === '' ? null : parseFloat(data.ll_cm),
           status_gizi: data.status_gizi === '' ? null : data.status_gizi,
           saran: data.saran === '' ? null : data.saran,
-          // HAPUS id_kader_pencatat: kaderId, // Hapus jika backend ambil dari token
       };
       if (isNaN(payload.id_anak)) payload.id_anak = 0;
       if (isNaN(payload.bb_kg)) payload.bb_kg = null;
@@ -237,10 +236,10 @@ export default function DataPerkembanganPage() {
       setSuccess('Data perkembangan berhasil ditambahkan!');
       setFormData({ id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: '' }); // Reset form
       fetchPerkembangan(searchQuery); // Refresh tabel
-    } 
-      catch (err: unknown) { 
+    }
+      catch (err: unknown) { // Changed any to unknown
       let message = 'Gagal menambahkan data.';
-      if(err instanceof Error) { message = err.message; }
+      if(err instanceof Error) { message = err.message; } // Type guard
       setError(message);
     } finally {
       setIsLoading(false);
@@ -295,14 +294,14 @@ export default function DataPerkembanganPage() {
       setSuccess('Data perkembangan berhasil diperbarui!');
       setIsModalOpen(false);
       fetchPerkembangan(searchQuery);
-    } catch (err: unknown) { // <-- Ganti any jadi unknown
+    } catch (err: unknown) { // Changed any to unknown
       let message = 'Gagal memperbarui data.';
-      if(err instanceof Error) { message = err.message; } // <-- Tambah cek tipe
+      if(err instanceof Error) { message = err.message; } // Type guard
       setError(message); // Tampilkan di modal
     } finally {
       setIsLoading(false);
     }
-  };  
+  };
 
   // --- Fungsi Delete Perkembangan ---
   const handleDelete = async (id: number) => {
@@ -317,9 +316,9 @@ export default function DataPerkembanganPage() {
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data perkembangan.');
       setSuccess('Data perkembangan berhasil dihapus!');
       fetchPerkembangan(searchQuery);
-    } catch (err: unknown) { // <-- Ganti any jadi unknown
+    } catch (err: unknown) { // Changed any to unknown
       let message = 'Gagal menghapus data.';
-      if(err instanceof Error) { message = err.message; } // <-- Tambah cek tipe
+      if(err instanceof Error) { message = err.message; } // Type guard
       setError(message);
     }
   };
@@ -334,7 +333,7 @@ export default function DataPerkembanganPage() {
         return date.toLocaleDateString('id-ID', {
             day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' // Tentukan timezone
         });
-      } catch (e: unknown) { // <-- Ganti any jadi unknown
+      } catch (e: unknown) { // Changed any to unknown
         console.error("Error formatting display date:", tanggalString, e);
         return tanggalString;
        }

@@ -100,9 +100,9 @@ export default function DataKaderPage() {
       }
       const data: Kader[] = await response.json();
       setDaftarKader(data);
-    } catch (err: unknown) { // <-- Ganti any jadi unknown
+    } catch (err: unknown) { // Changed any to unknown
       let message = 'Tidak dapat memuat data kader.';
-      if(err instanceof Error) { message = err.message; }
+      if(err instanceof Error) { message = err.message; } // Type guard
       console.error("Fetch kader failed:", message);
       if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
           setError(message);
@@ -113,8 +113,7 @@ export default function DataKaderPage() {
     }
   }, [fetchWithAuth]); // <-- Tambah dependensi
 
-  // FIX: Added fetchKader dependency
-  const debouncedFetch = useCallback(debounce(fetchKader, 500), [fetchKader]);
+  const debouncedFetch = useCallback(debounce(fetchKader, 500), [fetchKader]); // Corrected dependency
 
    // --- useEffect untuk fetch data awal dan redirect ---
   useEffect(() => {
