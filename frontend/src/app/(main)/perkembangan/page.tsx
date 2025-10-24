@@ -104,14 +104,17 @@ export default function DataPerkembanganPage() {
       if (!response.ok) throw new Error('Gagal mengambil daftar anak');
       const data: AnakOption[] = await response.json();
       setDaftarAnakOptions(data);
-    } catch (err: any) {
-      console.error("Fetch anak options failed:", err);
-       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
-          setError('Gagal memuat daftar anak untuk pilihan.');
-       }
-    } finally {
+    } catch (err: unknown) {
+      let message = 'Tidak dapat memuat data anak.';
+      if (err instanceof Error) {message = err.message;}
+      console.error("Fetch anak options failed:", message);
+      if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+        setError(message);
+      }
+    }finally {
       setIsFetchingAnak(false);
-    }
+    } 
+
   }, [fetchWithAuth]); // <-- Tambah dependensi
 
   // --- Fungsi Fetch Perkembangan ---
@@ -138,14 +141,15 @@ export default function DataPerkembanganPage() {
         tanggal_pemeriksaan: p.tanggal_pemeriksaan ? new Date(p.tanggal_pemeriksaan).toISOString().split('T')[0] : '',
       }));
       setDaftarPerkembangan(formattedData);
-    } catch (err: any) {
-      console.error("Fetch perkembangan failed:", err);
-       if (err.message !== 'Anda belum login.' && err.message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
-         setError('Tidak dapat memuat data perkembangan.');
-       }
-      setDaftarPerkembangan([]);
-    } finally {
-      setIsFetching(false);
+    } catch (err: unknown) {
+      let message = 'Tidak dapat memuat data perkembangan.';
+      if (err instanceof Error) {message = err.message;}
+      console.error("Fetch perkembangan failed:", message);
+      if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+        setError(message);
+      } setDaftarPerkembangan([]);
+    }finally {
+      setIsFetching(false)
     }
   }, [fetchWithAuth]); // <-- Tambah dependensi
 
@@ -233,8 +237,11 @@ export default function DataPerkembanganPage() {
       setSuccess('Data perkembangan berhasil ditambahkan!');
       setFormData({ id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: '' }); // Reset form
       fetchPerkembangan(searchQuery); // Refresh tabel
-    } catch (err: any) {
-      setError(err.message);
+    } 
+      catch (err: unknown) { 
+      let message = 'Gagal menambahkan data.';
+      if(err instanceof Error) { message = err.message; }
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -288,12 +295,14 @@ export default function DataPerkembanganPage() {
       setSuccess('Data perkembangan berhasil diperbarui!');
       setIsModalOpen(false);
       fetchPerkembangan(searchQuery);
-    } catch (err: any) {
-      setError(err.message); // Tampilkan di modal
+    } catch (err: unknown) { // <-- Ganti any jadi unknown
+      let message = 'Gagal memperbarui data.';
+      if(err instanceof Error) { message = err.message; } // <-- Tambah cek tipe
+      setError(message); // Tampilkan di modal
     } finally {
       setIsLoading(false);
     }
-  };
+  };  
 
   // --- Fungsi Delete Perkembangan ---
   const handleDelete = async (id: number) => {
@@ -308,8 +317,10 @@ export default function DataPerkembanganPage() {
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data perkembangan.');
       setSuccess('Data perkembangan berhasil dihapus!');
       fetchPerkembangan(searchQuery);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // <-- Ganti any jadi unknown
+      let message = 'Gagal menghapus data.';
+      if(err instanceof Error) { message = err.message; } // <-- Tambah cek tipe
+      setError(message);
     }
   };
 
@@ -321,20 +332,22 @@ export default function DataPerkembanganPage() {
             day: '2-digit', month: 'short', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
         });
-    } catch(e) { return 'Invalid Date';}
+    } catch(e: unknown) { // <-- Ganti any jadi unknown
+      console.error("Error formatting date time:", tanggalString, e); // Tambahkan log error jika mau
+      return 'Invalid Date';
+    }
    };
-
    // Fungsi format tanggal HANYA untuk tampilan di tabel
    const formatDisplayTanggal = (tanggalString: string | null) => {
       if (!tanggalString) return '-';
       try {
         // Asumsi input YYYY-MM-DD
-        const date = new Date(tanggalString + 'T00:00:00');
+        const date = new Date(tanggalString + 'T00:00:00Z'); // Tambah Z agar dianggap UTC
         if (isNaN(date.getTime())) return tanggalString;
         return date.toLocaleDateString('id-ID', {
-            day: '2-digit', month: 'long', year: 'numeric'
+            day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' // Tentukan timezone
         });
-      } catch (e) {
+      } catch (e: unknown) { // <-- Ganti any jadi unknown
         console.error("Error formatting display date:", tanggalString, e);
         return tanggalString;
        }

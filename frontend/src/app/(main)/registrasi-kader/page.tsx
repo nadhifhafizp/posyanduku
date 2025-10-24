@@ -100,13 +100,13 @@ export default function DataKaderPage() {
       }
       const data: Kader[] = await response.json();
       setDaftarKader(data);
-    } catch (err: unknown) { // Use unknown type
+    } catch (err: unknown) { // <-- Ganti any jadi unknown
       let message = 'Tidak dapat memuat data kader.';
-       if(err instanceof Error) { message = err.message; }
+      if(err instanceof Error) { message = err.message; }
       console.error("Fetch kader failed:", message);
-       if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+      if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
           setError(message);
-       }
+      }
       setDaftarKader([]);
     } finally {
       setIsFetching(false);
