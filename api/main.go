@@ -27,7 +27,7 @@ func main() {
 
 	// --- Setup CORS ---
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://posyanduku.vercel.app"},
+		AllowOrigins:     []string{"https://posyanduku-frontend.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
