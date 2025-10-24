@@ -1,286 +1,208 @@
-// src/app/(main)/imunisasi-anak/page.tsx
+// src/app/(main)/master-imunisasi/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose
 } from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Textarea } from "@/components/ui/textarea"; // Keep Textarea for description
 import { Pencil, Trash2, Search } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext'; // Import useAuth
-import { useFetchWithAuth } from '@/lib/utils'; // Import fetch hook
+import { useAuth } from '@/context/AuthContext';
+import { useFetchWithAuth } from '@/lib/utils';
 
-// --- Interface & Tipe Data ---
-interface AnakSimple {
-  id: number;
-  nama_anak: string;
-  nik_anak: string | null;
-}
-
-interface MasterImunisasiSimple {
+// --- Interface & Tipe Data BARU ---
+interface MasterImunisasi {
   id: number;
   nama_imunisasi: string;
   usia_ideal_bulan: number;
-}
-
-interface RiwayatImunisasi {
-  id: number;
-  id_anak: number;
-  id_master_imunisasi: number;
-  tanggal_imunisasi: string; // YYYY-MM-DD string from state/formatting
-  catatan: string | null;
+  deskripsi: string | null;
   created_at: string;
   updated_at: string | null;
-  nama_anak: string;
-  nik_anak: string | null;
+}
+
+// Tipe untuk form create/edit BARU
+type MasterImunisasiFormData = {
   nama_imunisasi: string;
-  nama_kader: string | null;
-  nama_kader_updater: string | null;
+  usia_ideal_bulan: string; // Terima sebagai string dari input
+  deskripsi: string;
 }
 
-type TambahFormData = {
-  id_anak: string;
-  id_master_imunisasi: string;
-  tanggal_imunisasi: string;
-  catatan: string;
-}
-
-type EditFormData = {
-  id_anak: string;
-  id_master_imunisasi: string;
-  tanggal_imunisasi: string;
-  catatan: string;
-}
-
-// --- Fungsi Debounce (Sudah Diperbaiki) ---
-function debounce<Params extends unknown[]>(
-  func: (...args: Params) => void,
-  wait: number
-): (...args: Params) => void {
+// --- Fungsi Debounce (Tetap Sama) ---
+function debounce<Params extends unknown[]>(func: (...args: Params) => void, wait: number): (...args: Params) => void {
   let timeout: NodeJS.Timeout | null = null;
   return function executedFunction(...args: Params) {
-    const later = () => {
-      timeout = null;
-      func(...args);
-    };
-    if (timeout) {
-      clearTimeout(timeout);
-    }
+    const later = () => { timeout = null; func(...args); };
+    if (timeout) { clearTimeout(timeout); }
     timeout = setTimeout(later, wait);
   };
 }
 
-
-// --- Helper Format Tanggal ---
-const formatTanggalDisplay = (tanggalString: string | null) => { // Untuk tampilan tabel DD MMM YYYY
-  if (!tanggalString) return 'N/A';
-  try {
-      // Asumsi input YYYY-MM-DD
-      const date = new Date(tanggalString + 'T00:00:00Z'); // Handle as UTC date part
-      if (isNaN(date.getTime())) return 'Invalid Date';
-      return date.toLocaleDateString('id-ID', {
-          day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' // Display in WIB
-      });
-  } catch (e) {
-      console.error("Error formatting display date:", tanggalString, e);
-      return 'Invalid Date';
-  }
-};
-
-const formatTanggalISO = (tanggalString: string | null): string => { // Untuk value input type="date"
-    if (!tanggalString) return '';
+// --- Helper Format Tanggal (Hanya perlu formatTanggalWaktu) ---
+const formatTanggalWaktu = (tanggalString: string | null) => {
+    if (!tanggalString) return 'N/A';
     try {
-        const date = new Date(tanggalString); // Coba parsing langsung
-        if (isNaN(date.getTime())) return ''; // Handle invalid date
-        // Ambil komponen tanggal dari UTC untuk menghindari pergeseran timezone
-        const year = date.getUTCFullYear();
-        const month = (date.getUTCMonth() + 1).toString().padStart(2, '0');
-        const day = date.getUTCDate().toString().padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    } catch (_e) { // Variabel tidak digunakan
-        console.error("Error parsing date for ISO format:", tanggalString);
-        return '';
+        const date = new Date(tanggalString);
+         if (isNaN(date.getTime())) return 'Invalid Date';
+        // Tampilkan WIB
+        return date.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
+    } catch(e: unknown) { // <-- Ganti any jadi unknown
+        console.error("Error formatting date time:", tanggalString, e);
+        return 'Invalid Date';
     }
-};
+   };
 
-export default function RegistrasiImunisasiPage() {
-  const router = useRouter(); // Initialize router
-  const { isLoggedIn, isLoadingAuth } = useAuth(); // Get auth status
-  const fetchWithAuth = useFetchWithAuth(); // Get authenticated fetch function
 
-  // --- State ---
-  const [daftarRiwayat, setDaftarRiwayat] = useState<RiwayatImunisasi[]>([]);
-  const [daftarAnak, setDaftarAnak] = useState<AnakSimple[]>([]);
-  const [daftarMaster, setDaftarMaster] = useState<MasterImunisasiSimple[]>([]);
-  const [tambahFormData, setTambahFormData] = useState<TambahFormData>({ id_anak: '', id_master_imunisasi: '', tanggal_imunisasi: '', catatan: '' });
+export default function MasterImunisasiPage() { // <-- Ubah Nama Komponen
+  const router = useRouter();
+  const { isLoggedIn, isLoadingAuth } = useAuth();
+  const fetchWithAuth = useFetchWithAuth();
+
+  // --- State BARU ---
+  const [daftarMasterImunisasi, setDaftarMasterImunisasi] = useState<MasterImunisasi[]>([]);
+  const [formData, setFormData] = useState<MasterImunisasiFormData>({ nama_imunisasi: '', usia_ideal_bulan: '', deskripsi: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // For form submissions
-  const [isFetching, setIsFetching] = useState(true); // For initial table/dropdown load
+  const [isLoading, setIsLoading] = useState(false); // Submit/Update/Delete loading
+  const [isFetching, setIsFetching] = useState(true); // Table data loading
   const [searchQuery, setSearchQuery] = useState('');
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingRiwayat, setEditingRiwayat] = useState<RiwayatImunisasi | null>(null);
-  const [editFormData, setEditFormData] = useState<EditFormData>({ id_anak: '', id_master_imunisasi: '', tanggal_imunisasi: '', catatan: '' });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMasterImunisasi, setEditingMasterImunisasi] = useState<MasterImunisasi | null>(null);
+  const [editFormData, setEditFormData] = useState<MasterImunisasiFormData>({ nama_imunisasi: '', usia_ideal_bulan: '', deskripsi: '' });
 
-  const API_URL = 'http://localhost:8080/api/riwayat-imunisasi';
-  const API_ANAK_URL = 'http://localhost:8080/api/anak/simple';
-  const API_MASTER_URL = 'http://localhost:8080/api/master-imunisasi';
+  // URL API BARU
+  const API_URL_MASTER_IMUNISASI = 'http://localhost:8080/api/master-imunisasi';
 
-  // --- Fetch Functions ---
-  const fetchRiwayatImunisasi = useCallback(async (query: string = '') => {
+  // --- Fetch Master Imunisasi BARU ---
+  const fetchMasterImunisasi = useCallback(async (query: string = '') => { // <-- Ganti nama fungsi
     setIsFetching(true);
     setError('');
-    let url = API_URL;
-    if (query) url += `?search=${encodeURIComponent(query)}`;
+    let url = API_URL_MASTER_IMUNISASI; // <-- Gunakan URL yang benar
+    if (query) { url += `?search=${encodeURIComponent(query)}`; }
     try {
       const response = await fetchWithAuth(url);
       if (!response.ok) {
-        let errorMsg = 'Gagal mengambil data riwayat imunisasi.';
-         try { const errData = await response.json(); errorMsg = errData.error || errorMsg;}
-         catch(_e) { errorMsg = await response.text() || errorMsg; }
+        let errorMsg = 'Gagal mengambil data master imunisasi';
+        try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
+        catch { errorMsg = await response.text() || errorMsg; }
         throw new Error(errorMsg);
       }
-      const data: RiwayatImunisasi[] | null = await response.json();
-       const formattedData = (data || []).map(item => ({
-            ...item,
-            tanggal_imunisasi: formatTanggalISO(item.tanggal_imunisasi), // Store as YYYY-MM-DD
-        }));
-      setDaftarRiwayat(formattedData);
-    } catch (err) {
-      let message = 'Terjadi kesalahan saat mengambil data riwayat.';
-      if (err instanceof Error) { message = err.message; }
-      console.error("Fetch riwayat failed:", message);
-       if (!query && message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
-            setError(`Tidak dapat memuat data: ${message}`);
+      const data: MasterImunisasi[] = await response.json();
+      setDaftarMasterImunisasi(data || []); // <-- Set state yang benar
+    } catch (err: unknown) {
+      let message = 'Tidak dapat memuat data master imunisasi.';
+       if(err instanceof Error) { message = err.message; }
+      console.error("Fetch master imunisasi failed:", message);
+       if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
+         setError(message);
        }
-      setDaftarRiwayat([]);
+      setDaftarMasterImunisasi([]); // <-- Set state yang benar
     } finally {
       setIsFetching(false);
     }
-  }, [fetchWithAuth]); // Dependency: fetchWithAuth
+  }, [fetchWithAuth]); // <-- Dependency fetchWithAuth sudah benar
 
-  const fetchDropdownData = useCallback(async () => {
-    // No specific loading for dropdowns unless complex
-    try {
-        const [anakRes, masterRes] = await Promise.all([
-            fetchWithAuth(API_ANAK_URL),
-            fetchWithAuth(API_MASTER_URL)
-        ]);
-        if (!anakRes.ok) {
-            let errorMsg = 'Gagal memuat daftar anak';
-            try { const errData = await anakRes.json(); errorMsg = errData.error || errorMsg; }
-            catch(_e) { errorMsg = await anakRes.text() || errorMsg; }
-            throw new Error(errorMsg);
-        }
-        const dataAnak: AnakSimple[] | null = await anakRes.json();
-        setDaftarAnak(dataAnak || []);
+  // useCallback untuk debounce BARU (tergantung fetchMasterImunisasi)
+  const debouncedFetch = useCallback(debounce(fetchMasterImunisasi, 500), [fetchMasterImunisasi]); // <-- Masukkan fetchMasterImunisasi
 
-        if (!masterRes.ok) {
-             let errorMsg = 'Gagal memuat daftar imunisasi';
-            try { const errData = await masterRes.json(); errorMsg = errData.error || errorMsg; }
-            catch(_e) { errorMsg = await masterRes.text() || errorMsg; }
-            throw new Error(errorMsg);
-        }
-        const dataMaster: MasterImunisasiSimple[] | null = await masterRes.json();
-        setDaftarMaster(dataMaster || []);
-    } catch (err) {
-        let message = "Gagal memuat data dropdown.";
-        if (err instanceof Error) { message = err.message; }
-        console.error("Fetch dropdown failed:", message);
-        if (message !== 'Anda belum login.' && message !== 'Sesi Anda tidak valid atau telah berakhir. Silakan login kembali.') {
-             setError(message);
-        }
-    }
-  }, [fetchWithAuth]); // Dependency: fetchWithAuth
+  // --- useEffect Fetch Data Awal & Redirect BARU ---
+   useEffect(() => {
+     if (!isLoadingAuth) {
+       if (isLoggedIn) {
+         fetchMasterImunisasi(); // <-- Panggil fungsi fetch yang benar
+       } else {
+         console.log("MasterImunisasiPage: Belum login, redirecting..."); // <-- Sesuaikan log
+         router.push('/login');
+       }
+     }
+   }, [isLoadingAuth, isLoggedIn, fetchMasterImunisasi, router]); // <-- Masukkan fetchMasterImunisasi
 
-  const debouncedFetch = useCallback(debounce(fetchRiwayatImunisasi, 500), [fetchRiwayatImunisasi]);
 
-  // --- useEffect for Initial Fetch & Redirect ---
-  useEffect(() => {
-    if(!isLoadingAuth) { // Wait for auth check
-        if (isLoggedIn) {
-            fetchRiwayatImunisasi();
-            fetchDropdownData();
-        } else {
-             console.log("ImunisasiAnakPage: Not logged in, redirecting...");
-             router.push('/login'); // Redirect if not logged in
-        }
-    }
-  }, [isLoadingAuth, isLoggedIn, fetchRiwayatImunisasi, fetchDropdownData, router]); // Correct dependencies
+  // --- Helper Konversi Payload BARU ---
+  const preparePayload = (data: MasterImunisasiFormData) => {
+      const usiaIdeal = parseInt(data.usia_ideal_bulan, 10);
+      if (isNaN(usiaIdeal) || usiaIdeal < 0) {
+          throw new Error("Usia Ideal (bulan) harus angka positif atau 0.");
+      }
+      if (!data.nama_imunisasi.trim()) {
+           throw new Error("Nama Imunisasi wajib diisi.");
+      }
 
-  // --- Handlers ---
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { const query = e.target.value; setSearchQuery(query); setError(''); setSuccess(''); debouncedFetch(query); };
-  const handleTambahFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const { id, value } = e.target; setTambahFormData(prevState => ({ ...prevState, [id]: value })); };
-  const handleTambahSelectChange = (id: 'id_anak' | 'id_master_imunisasi', value: string) => { setTambahFormData(prevState => ({ ...prevState, [id]: value })); };
-  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const { id, value } = e.target; setEditFormData(prevState => ({ ...prevState, [id as keyof EditFormData]: value })); };
-  const handleEditSelectChange = (id: 'id_anak' | 'id_master_imunisasi', value: string) => { setEditFormData(prevState => ({ ...prevState, [id]: value })); };
+      const payload = {
+          nama_imunisasi: data.nama_imunisasi.trim(),
+          usia_ideal_bulan: usiaIdeal,
+          deskripsi: data.deskripsi.trim() === '' ? null : data.deskripsi.trim(),
+      };
+      return payload;
+  };
 
-  // --- Submit Handlers ---
-  const handleTambahSubmit = async (event: React.FormEvent) => {
+  // --- Handlers BARU ---
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { const query = e.target.value; setSearchQuery(query); debouncedFetch(query); };
+  // Gabungkan handleChange untuk Input dan Textarea
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const { id, value } = e.target; setFormData(prevState => ({ ...prevState, [id]: value })); };
+  // Gabungkan handleEditFormChange untuk Input dan Textarea
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => { const { id, value } = e.target; setEditFormData(prevState => ({ ...prevState, [id as keyof MasterImunisasiFormData]: value })); };
+
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault(); setIsLoading(true); setError(''); setSuccess('');
-    const idAnak = parseInt(tambahFormData.id_anak, 10);
-    const idMaster = parseInt(tambahFormData.id_master_imunisasi, 10);
-    if (isNaN(idAnak) || idAnak <= 0) { setError("Silakan pilih Anak."); setIsLoading(false); return; }
-    if (isNaN(idMaster) || idMaster <= 0) { setError("Silakan pilih Jenis Imunisasi."); setIsLoading(false); return; }
-    if (!tambahFormData.tanggal_imunisasi || !/^\d{4}-\d{2}-\d{2}$/.test(tambahFormData.tanggal_imunisasi)) { setError("Format Tanggal Imunisasi tidak valid (YYYY-MM-DD)."); setIsLoading(false); return; }
-    const payload = { id_anak: idAnak, id_master_imunisasi: idMaster, tanggal_imunisasi: tambahFormData.tanggal_imunisasi, catatan: tambahFormData.catatan || null };
     try {
-      const response = await fetchWithAuth(API_URL, { method: 'POST', body: JSON.stringify(payload) });
+      const payload = preparePayload(formData);
+      const response = await fetchWithAuth(API_URL_MASTER_IMUNISASI, { method: 'POST', body: JSON.stringify(payload) });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menambah data.');
-      setSuccess('Riwayat imunisasi baru berhasil ditambahkan!'); setTambahFormData({ id_anak: '', id_master_imunisasi: '', tanggal_imunisasi: '', catatan: '' }); fetchRiwayatImunisasi(searchQuery);
-    } catch (err) {
-      let message = 'Gagal menambah data.';
-      if (err instanceof Error) { message = err.message; }
+      if (!response.ok) throw new Error(data.error || 'Gagal menambahkan master imunisasi.');
+      setSuccess('Master imunisasi berhasil ditambahkan!'); setFormData({ nama_imunisasi: '', usia_ideal_bulan: '', deskripsi: '' }); fetchMasterImunisasi(searchQuery);
+    } catch (err: unknown) {
+      let message = 'Gagal menambahkan data.';
+      if(err instanceof Error) { message = err.message; }
       setError(message);
     } finally { setIsLoading(false); }
   };
 
-  const handleOpenEditModal = (riwayat: RiwayatImunisasi) => { setEditingRiwayat(riwayat); setEditFormData({ id_anak: String(riwayat.id_anak), id_master_imunisasi: String(riwayat.id_master_imunisasi), tanggal_imunisasi: formatTanggalISO(riwayat.tanggal_imunisasi), catatan: riwayat.catatan || '' }); setIsEditModalOpen(true); setError(''); setSuccess(''); };
+  const handleOpenEditModal = (m: MasterImunisasi) => {
+    setEditingMasterImunisasi(m); // <-- Set state yang benar
+    setEditFormData({
+        nama_imunisasi: m.nama_imunisasi || '',
+        usia_ideal_bulan: m.usia_ideal_bulan?.toString() ?? '0', // Default ke '0' jika null
+        deskripsi: m.deskripsi || '',
+    });
+    setIsModalOpen(true); setError(''); setSuccess('');
+  };
 
   const handleUpdateSubmit = async (event: React.FormEvent) => {
-    event.preventDefault(); if (!editingRiwayat) return; setIsLoading(true); setError('');
-    const idAnak = parseInt(editFormData.id_anak, 10);
-    const idMaster = parseInt(editFormData.id_master_imunisasi, 10);
-    if (isNaN(idAnak) || idAnak <= 0) { setError("Silakan pilih Anak."); setIsLoading(false); return; }
-    if (isNaN(idMaster) || idMaster <= 0) { setError("Silakan pilih Jenis Imunisasi."); setIsLoading(false); return; }
-    if (!editFormData.tanggal_imunisasi || !/^\d{4}-\d{2}-\d{2}$/.test(editFormData.tanggal_imunisasi)) { setError("Format Tanggal Imunisasi tidak valid (YYYY-MM-DD)."); setIsLoading(false); return; }
-    const payload = { id_anak: idAnak, id_master_imunisasi: idMaster, tanggal_imunisasi: editFormData.tanggal_imunisasi, catatan: editFormData.catatan || null };
+    event.preventDefault(); if (!editingMasterImunisasi) return; setIsLoading(true); setError(''); // <-- Cek state yang benar
     try {
-      const response = await fetchWithAuth(`${API_URL}/${editingRiwayat.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+      const payload = preparePayload(editFormData);
+      const response = await fetchWithAuth(`${API_URL_MASTER_IMUNISASI}/${editingMasterImunisasi.id}`, { method: 'PUT', body: JSON.stringify(payload) }); // <-- Gunakan URL & ID yang benar
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data.');
-      setSuccess('Data riwayat imunisasi berhasil diperbarui!'); setIsEditModalOpen(false); fetchRiwayatImunisasi(searchQuery);
-    } catch (err) {
-       let message = 'Gagal memperbarui data.';
-      if (err instanceof Error) { message = err.message; }
+      if (!response.ok) throw new Error(data.error || 'Gagal memperbarui master imunisasi.');
+      setSuccess('Master imunisasi berhasil diperbarui!'); setIsModalOpen(false); fetchMasterImunisasi(searchQuery);
+    } catch (err: unknown) {
+      let message = 'Gagal memperbarui data.';
+      if(err instanceof Error) { message = err.message; }
       setError(message);
     } finally { setIsLoading(false); }
   };
 
-   const handleDelete = async (id: number) => {
-    if (!confirm(`Anda yakin ingin menghapus data riwayat imunisasi ini?`)) return; setIsLoading(true); setError(''); setSuccess('');
+  const handleDelete = async (id: number) => {
+    if (!confirm('Anda yakin ingin menghapus master imunisasi ini? Ini bisa mempengaruhi data riwayat.')) return; setError(''); setSuccess(''); setIsLoading(true); // <-- Tambah setIsLoading
     try {
-      const response = await fetchWithAuth(`${API_URL}/${id}`, { method: 'DELETE' });
+      const response = await fetchWithAuth(`${API_URL_MASTER_IMUNISASI}/${id}`, { method: 'DELETE' }); // <-- Gunakan URL yang benar
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Gagal menghapus data.');
-      setSuccess(`Data riwayat berhasil dihapus!`); fetchRiwayatImunisasi(searchQuery);
-    } catch (err) {
-       let message = 'Gagal menghapus data.';
-      if (err instanceof Error) { message = err.message; }
+      if (!response.ok) throw new Error(data.error || 'Gagal menghapus master imunisasi.');
+      setSuccess('Master imunisasi berhasil dihapus!'); fetchMasterImunisasi(searchQuery);
+    } catch (err: unknown) {
+      let message = 'Gagal menghapus data.';
+      if(err instanceof Error) { message = err.message; }
       setError(message);
-    } finally { setIsLoading(false); }
+    } finally { setIsLoading(false); } // <-- Tambah finally
   };
 
-  // --- Render Loading/Redirect ---
-   if (isLoadingAuth || (isFetching && daftarRiwayat.length === 0 && daftarAnak.length === 0)) { // Check dropdown loading too
+
+   // --- Render Loading/Redirect ---
+   if (isLoadingAuth || (isFetching && daftarMasterImunisasi.length === 0)) { // <-- Cek state yang benar
        return <div className="text-center p-8">Memuat data...</div>;
    }
    if (!isLoadingAuth && !isLoggedIn) {
@@ -288,13 +210,53 @@ export default function RegistrasiImunisasiPage() {
    }
 
 
-  // --- JSX Return ---
+  // --- JSX Return BARU ---
   return (
     <>
-      <header className="mb-6"><h1 className="text-3xl font-bold text-gray-900">Registrasi Imunisasi</h1><p className="text-gray-600 mt-1">Catat riwayat imunisasi yang telah diberikan kepada anak.</p></header>
-      <div className="mb-8"><div className="bg-white rounded-xl shadow-md p-6 sm:p-8"><form onSubmit={handleTambahSubmit} className="space-y-6"><h2 className="text-2xl font-bold text-gray-800 mb-6">Catat Imunisasi Baru</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div className="space-y-6"><div><Label htmlFor="id_anak">Nama Anak *</Label><Select value={tambahFormData.id_anak} onValueChange={(value) => handleTambahSelectChange('id_anak', value)} required><SelectTrigger className="w-full mt-1"><SelectValue placeholder="Pilih Anak..." /></SelectTrigger><SelectContent>{daftarAnak.length > 0 ? (daftarAnak.map(anak => (<SelectItem key={anak.id} value={String(anak.id)}>{anak.nama_anak} (NIK: {anak.nik_anak || 'N/A'})</SelectItem>))) : (<div className="p-2 text-sm text-muted-foreground text-center">{isFetching ? 'Memuat...' : 'Tidak ada data anak'}</div>)}</SelectContent></Select></div><div><Label htmlFor="id_master_imunisasi">Jenis Imunisasi *</Label><Select value={tambahFormData.id_master_imunisasi} onValueChange={(value) => handleTambahSelectChange('id_master_imunisasi', value)} required><SelectTrigger className="w-full mt-1"><SelectValue placeholder="Pilih Jenis Imunisasi..." /></SelectTrigger><SelectContent>{daftarMaster.length > 0 ? (daftarMaster.map(imun => (<SelectItem key={imun.id} value={String(imun.id)}>{imun.nama_imunisasi} (Usia: {imun.usia_ideal_bulan} bln)</SelectItem>))) : (<div className="p-2 text-sm text-muted-foreground text-center">{isFetching ? 'Memuat...' : 'Tidak ada data imunisasi'}</div>)}</SelectContent></Select></div></div><div className="space-y-6"><div><Label htmlFor="tanggal_imunisasi">Tanggal Imunisasi *</Label><Input type="date" id="tanggal_imunisasi" value={tambahFormData.tanggal_imunisasi} onChange={handleTambahFormChange} required className="mt-1"/></div></div></div><div><Label htmlFor="catatan">Catatan (Opsional)</Label><Textarea id="catatan" value={tambahFormData.catatan} onChange={handleTambahFormChange} placeholder="Misal: Vitamin A Merah, Imunisasi susulan, dll." className="mt-1" rows={3}/></div>{error && !isEditModalOpen && <p className="text-red-500 text-center font-medium pt-2">{error}</p>}{success && !isEditModalOpen && <p className="text-green-600 text-center font-medium pt-2">{success}</p>}<div className="pt-4"><Button type="submit" disabled={isLoading || !isLoggedIn} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer disabled:opacity-50">{isLoading ? 'Menyimpan...' : 'Simpan Catatan Imunisasi'}</Button></div></form></div></div>
-      <div className="bg-white rounded-xl shadow-md overflow-hidden"><div className="p-6 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"><h2 className="text-xl font-bold text-gray-800">Riwayat Imunisasi Tercatat</h2><div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" /><Input type="text" placeholder="Cari Nama Anak/Imunisasi..." value={searchQuery} onChange={handleSearchChange} className="pl-10 pr-4 py-2 w-full border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500"/></div></div><div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className="bg-gray-50 text-gray-600 uppercase"><tr><th className="px-6 py-3">Nama Anak</th><th className="px-6 py-3">NIK Anak</th><th className="px-6 py-3">Nama Imunisasi</th><th className="px-6 py-3">Tgl. Imunisasi</th><th className="px-6 py-3">Kader Pencatat</th><th className="px-6 py-3">Terakhir Diedit Oleh</th><th className="px-6 py-3">Catatan</th><th className="px-6 py-3">Aksi</th></tr></thead><tbody className="text-gray-700">{isFetching && daftarRiwayat.length === 0 ? (<tr><td colSpan={8} className="text-center p-8 text-gray-500">Memuat data riwayat...</td></tr>) : !isFetching && daftarRiwayat.length === 0 ? (<tr><td colSpan={8} className="text-center p-8 text-gray-500">{searchQuery ? `Tidak ada data ditemukan untuk "${searchQuery}".` : "Belum ada data riwayat imunisasi."}</td></tr>) : (daftarRiwayat.map((item) => (<tr key={item.id} className="border-b hover:bg-gray-50"><td className="px-6 py-4 font-medium">{item.nama_anak || '-'}</td><td className="px-6 py-4">{item.nik_anak || '-'}</td><td className="px-6 py-4">{item.nama_imunisasi || '-'}</td><td className="px-6 py-4">{formatTanggalDisplay(item.tanggal_imunisasi)}</td><td className="px-6 py-4">{item.nama_kader || 'N/A'}</td><td className="px-6 py-4">{item.nama_kader_updater || '-'}</td><td className="px-6 py-4 max-w-xs truncate" title={item.catatan || ''}>{item.catatan || '-'}</td><td className="px-6 py-4 flex space-x-2"><Button variant="outline" size="sm" onClick={() => handleOpenEditModal(item)} className="cursor-pointer" disabled={isLoading}><Pencil className="w-4 h-4" /></Button><Button variant="destructive" size="sm" onClick={() => handleDelete(item.id)} className="cursor-pointer" disabled={isLoading}><Trash2 className="w-4 h-4" /></Button></td></tr>)))}</tbody></table></div></div>
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Edit Riwayat Imunisasi</DialogTitle><DialogDescription>Perbarui data imunisasi anak di bawah ini.</DialogDescription></DialogHeader><form onSubmit={handleUpdateSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2"><div className="grid grid-cols-1 gap-4"><div><Label htmlFor="id_anak_edit">Nama Anak *</Label><Select value={editFormData.id_anak} onValueChange={(value) => handleEditSelectChange('id_anak', value)} required><SelectTrigger className="w-full mt-1" id="id_anak_edit"><SelectValue placeholder="Pilih Anak..." /></SelectTrigger><SelectContent>{daftarAnak.length > 0 ? (daftarAnak.map(anak => (<SelectItem key={anak.id} value={String(anak.id)}>{anak.nama_anak} (NIK: {anak.nik_anak || 'N/A'})</SelectItem>))) : (<SelectItem value="loading" disabled>Memuat anak...</SelectItem>)}</SelectContent></Select></div><div><Label htmlFor="id_master_imunisasi_edit">Jenis Imunisasi *</Label><Select value={editFormData.id_master_imunisasi} onValueChange={(value) => handleEditSelectChange('id_master_imunisasi', value)} required><SelectTrigger className="w-full mt-1" id="id_master_imunisasi_edit"><SelectValue placeholder="Pilih Jenis Imunisasi..." /></SelectTrigger><SelectContent>{daftarMaster.length > 0 ? (daftarMaster.map(imun => (<SelectItem key={imun.id} value={String(imun.id)}>{imun.nama_imunisasi}</SelectItem>))) : (<SelectItem value="loading" disabled>Memuat imunisasi...</SelectItem>)}</SelectContent></Select></div><div><Label htmlFor="tanggal_imunisasi_edit">Tanggal Imunisasi *</Label><Input type="date" id="tanggal_imunisasi" value={editFormData.tanggal_imunisasi} onChange={handleEditFormChange} required className="mt-1"/></div></div><div><Label htmlFor="catatan_edit">Catatan (Opsional)</Label><Textarea id="catatan" value={editFormData.catatan} onChange={handleEditFormChange} className="mt-1 h-24 resize-none" rows={3}/></div>{error && isEditModalOpen && <p className="text-red-500 text-center text-sm pt-2">{error}</p>}<DialogFooter className="pt-4 sm:justify-between"><DialogClose asChild><Button type="button" variant="outline" className="cursor-pointer">Batal</Button></DialogClose><Button type="submit" disabled={isLoading} className="cursor-pointer bg-cyan-800 hover:bg-cyan-700">{isLoading ? 'Menyimpan...' : 'Simpan Perubahan'}</Button></DialogFooter></form></DialogContent></Dialog>
+      {/* --- Form Create Master Imunisasi --- */}
+      <div className="bg-white rounded-xl shadow-md p-6 sm:p-8 mb-8">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Tambah Master Imunisasi Baru</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+              <div><Label htmlFor="nama_imunisasi">Nama Imunisasi *</Label><Input type="text" id="nama_imunisasi" value={formData.nama_imunisasi} onChange={handleChange} required placeholder="Contoh: BCG" className="mt-1" /></div>
+              <div><Label htmlFor="usia_ideal_bulan">Usia Ideal (bulan) *</Label><Input type="number" id="usia_ideal_bulan" value={formData.usia_ideal_bulan} onChange={handleChange} required placeholder="Contoh: 0" min="0" className="mt-1" /></div>
+              <div className="md:col-span-2"><Label htmlFor="deskripsi">Deskripsi (Opsional)</Label><Textarea id="deskripsi" value={formData.deskripsi} onChange={handleChange} placeholder="Jelaskan tentang imunisasi ini..." className="mt-1 h-20 resize-none" /></div>
+          </div>
+          {error && !isModalOpen && <p className="text-red-500 text-center font-medium pt-2">{error}</p>}
+          {success && !isModalOpen && <p className="text-green-600 text-center font-medium pt-2">{success}</p>}
+          <div className="pt-4"><Button type="submit" disabled={isLoading || !isLoggedIn} className="w-full py-3 bg-cyan-800 hover:bg-cyan-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">{isLoading ? 'Menyimpan...' : 'Tambahkan Master Imunisasi'}</Button></div>
+        </form>
+      </div>
+
+      {/* --- Tabel Data Master Imunisasi --- */}
+      <div className="bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="p-6 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+           <h2 className="text-xl font-bold text-gray-800">Daftar Master Imunisasi</h2>
+           <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" /><Input type="text" placeholder="Cari Nama Imunisasi..." value={searchQuery} onChange={handleSearchChange} className="pl-10 pr-4 py-2 w-full border rounded-md focus:outline-none focus:ring-2 focus:ring-cyan-500" /></div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+             <thead className="bg-gray-50 text-gray-600 uppercase whitespace-nowrap"><tr><th className="px-6 py-3">Nama Imunisasi</th><th className="px-6 py-3">Usia Ideal (Bulan)</th><th className="px-6 py-3">Deskripsi</th><th className="px-6 py-3">Dibuat</th><th className="px-6 py-3">Diperbarui</th><th className="px-6 py-3">Aksi</th></tr></thead>
+             <tbody className="text-gray-700">
+               {isFetching && daftarMasterImunisasi.length === 0 ? (<tr><td colSpan={6} className="text-center p-8 text-gray-500">Memuat data...</td></tr>) : !isFetching && daftarMasterImunisasi.length === 0 ? (<tr><td colSpan={6} className="text-center p-8 text-gray-500">{searchQuery ? `Tidak ada data ditemukan untuk "${searchQuery}".` : "Belum ada data master imunisasi."}</td></tr>) : (daftarMasterImunisasi.map((m) => (<tr key={m.id} className="border-b hover:bg-gray-50"><td className="px-6 py-4 font-medium">{m.nama_imunisasi}</td><td className="px-6 py-4 text-center">{m.usia_ideal_bulan}</td><td className="px-6 py-4 truncate max-w-sm" title={m.deskripsi || ''}>{m.deskripsi || '-'}</td><td className="px-6 py-4">{formatTanggalWaktu(m.created_at)}</td><td className="px-6 py-4">{formatTanggalWaktu(m.updated_at)}</td><td className="px-6 py-4 flex space-x-2"><Button variant="outline" size="sm" onClick={() => handleOpenEditModal(m)} className="cursor-pointer" disabled={isLoading}><Pencil className="w-4 h-4" /></Button><Button variant="destructive" size="sm" onClick={() => handleDelete(m.id)} className="cursor-pointer" disabled={isLoading}><Trash2 className="w-4 h-4" /></Button></td></tr>)))}
+             </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* --- Modal Update Master Imunisasi --- */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+         <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Edit Master Imunisasi</DialogTitle><DialogDescription>Perbarui detail master imunisasi.</DialogDescription></DialogHeader>
+          <form onSubmit={handleUpdateSubmit} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+              <div><Label htmlFor="nama_imunisasi_edit">Nama Imunisasi *</Label><Input id="nama_imunisasi" value={editFormData.nama_imunisasi} onChange={handleEditFormChange} required className="mt-1" /></div>
+              <div><Label htmlFor="usia_ideal_bulan_edit">Usia Ideal (bulan) *</Label><Input type="number" id="usia_ideal_bulan" value={editFormData.usia_ideal_bulan} onChange={handleEditFormChange} required min="0" className="mt-1" /></div>
+              <div><Label htmlFor="deskripsi_edit">Deskripsi (Opsional)</Label><Textarea id="deskripsi" value={editFormData.deskripsi} onChange={handleEditFormChange} placeholder="(Opsional)" className="mt-1 h-20 resize-none" /></div>
+            {error && isModalOpen && <p className="text-red-500 text-center pt-2">{error}</p>}
+            <DialogFooter className="pt-4 sm:justify-between"><DialogClose asChild><Button type="button" variant="outline" className="cursor-pointer">Batal</Button></DialogClose><Button type="submit" disabled={isLoading} className="cursor-pointer">{isLoading ? 'Menyimpan...' : 'Simpan Perubahan'}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

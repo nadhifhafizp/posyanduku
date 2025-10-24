@@ -72,7 +72,7 @@ export default function DataIbuPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // <-- Ignored variable
+        catch  { errorMsg = await response.text() || errorMsg; } // <-- Ignored variable
         throw new Error(errorMsg);
       }
       const data: Ibu[] | null = await response.json();

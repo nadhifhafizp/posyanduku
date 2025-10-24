@@ -54,17 +54,6 @@ const formatDisplayTanggal = (tanggalString: string | null) => {
         return tanggalString;
        }
   };
-const formatTanggalWaktu = (tanggalString: string | null) => {
-    if (!tanggalString) return 'N/A';
-    try {
-        const date = new Date(tanggalString);
-         if (isNaN(date.getTime())) return 'Invalid Date';
-        return date.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
-    } catch(e) {
-        console.error("Error formatting date time:", tanggalString, e);
-        return 'Invalid Date';
-    }
-   };
 
 export default function DataAnakPage() {
   const router = useRouter();
@@ -96,7 +85,7 @@ export default function DataAnakPage() {
       if (!response.ok) {
            let errorMsg = 'Gagal mengambil data ibu';
             try { const errData = await response.json(); errorMsg = errData.error || errorMsg; }
-            catch(_error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
+            catch(error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
           throw new Error(errorMsg);
       }
       const data: IbuOption[] = await response.json();
@@ -125,7 +114,7 @@ export default function DataAnakPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data anak';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
+        catch (error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignore variable
         throw new Error(errorMsg);
       }
       const data: Anak[] = await response.json();

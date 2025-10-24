@@ -71,7 +71,7 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number): (.
 
 export default function DataPerkembanganPage() {
   const router = useRouter(); // <-- 3. Inisialisasi router
-  const { isLoggedIn, kaderId, authToken } = useAuth(); // <-- Gunakan useAuth
+  const { isLoggedIn} = useAuth(); // <-- Gunakan useAuth
   const fetchWithAuth = useFetchWithAuth(); // <-- 4. Dapatkan fungsi fetch terautentikasi
 
   const [daftarPerkembangan, setDaftarPerkembangan] = useState<Perkembangan[]>([]);
@@ -131,7 +131,7 @@ export default function DataPerkembanganPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data perkembangan';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (jsonError) { errorMsg = await response.text() || errorMsg; }
+        catch { errorMsg = await response.text() || errorMsg; }
         throw new Error(errorMsg);
       }
       const data: Perkembangan[] = await response.json();
@@ -324,19 +324,6 @@ export default function DataPerkembanganPage() {
     }
   };
 
-  // Fungsi formatTanggal untuk created/updated
-  const formatTanggal = (tanggalString: string | null) => {
-    if (!tanggalString) return 'N/A';
-    try {
-        return new Date(tanggalString).toLocaleString('id-ID', {
-            day: '2-digit', month: 'short', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
-        });
-    } catch(e: unknown) { // <-- Ganti any jadi unknown
-      console.error("Error formatting date time:", tanggalString, e); // Tambahkan log error jika mau
-      return 'Invalid Date';
-    }
-   };
    // Fungsi format tanggal HANYA untuk tampilan di tabel
    const formatDisplayTanggal = (tanggalString: string | null) => {
       if (!tanggalString) return '-';

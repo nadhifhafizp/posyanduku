@@ -95,7 +95,7 @@ export default function DataKaderPage() {
       if (!response.ok) {
         let errorMsg = 'Gagal mengambil data kader';
         try { const errorData = await response.json(); errorMsg = errorData.error || errorMsg; }
-        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // Ignored variable
+        catch { errorMsg = await response.text() || errorMsg; } // Ignored variable
         throw new Error(errorMsg);
       }
       const data: Kader[] = await response.json();
@@ -128,7 +128,7 @@ export default function DataKaderPage() {
                 router.push('/login');
             }
        };
-             checkAuthAndRedirect();
+        checkAuthAndRedirect();
     }
   }, [isLoggedIn, fetchKader, router]); // Tambahkan dependensi
 
@@ -290,7 +290,7 @@ export default function DataKaderPage() {
             day: '2-digit', month: 'short', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
         });
-     } catch (_error: unknown) { return 'Invalid Date';} // Ignored variable
+     } catch { return 'Invalid Date';} // Ignored variable
    };
 
     // Render loading atau pesan jika belum login

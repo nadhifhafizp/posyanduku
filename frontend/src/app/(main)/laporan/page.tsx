@@ -78,7 +78,7 @@ export default function LaporanPage() {
       if (!response.ok) {
         let errorMsg = `Gagal mengambil laporan ${tipeLaporan}`;
         try { const errData = await response.json(); errorMsg = errData.error || errorMsg; }
-        catch (_error: unknown) { errorMsg = await response.text() || errorMsg; } // <-- Ignored variable
+        catch (error: unknown) { errorMsg = await response.text() || errorMsg; } // <-- Ignored variable
         throw new Error(errorMsg);
       }
       const data = await response.json();
