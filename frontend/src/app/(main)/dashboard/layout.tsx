@@ -1,5 +1,5 @@
 // src/app/(main)/dashboard/layout.tsx
-'use client'; // <-- Diperlukan karena ada hook dan event handler
+'use client'; // Sudah benar
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -11,10 +11,8 @@ import {
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-// Hapus impor Button jika tidak digunakan langsung di sini
-// import { Button } from '@/components/ui/button';
 
-// Data untuk menu sidebar
+// ... (sidebarNavItems tetap sama)
 const sidebarNavItems = [
   { title: "Beranda", href: "/dashboard", icon: LayoutDashboard },
   { title: "Registrasi Wali", href: "/registrasi-wali", icon: UserPlus },
@@ -27,7 +25,7 @@ const sidebarNavItems = [
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { logout, isLoggedIn, isLoadingAuth } = useAuth(); // Ambil juga isLoggedIn dan isLoadingAuth
+  const { logout, isLoggedIn, isLoadingAuth } = useAuth();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -37,28 +35,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  // Tambahkan ini untuk handle redirect jika belum login
+  // Ini bagian penting untuk proteksi halaman
   useEffect(() => {
-    // Tunggu loading auth selesai sebelum cek
     if (!isLoadingAuth && !isLoggedIn) {
         console.log("DashboardLayout: Belum login, redirecting...");
-        router.push('/login');
+        router.push('/login'); // Redirect jika tidak login
     }
-  }, [isLoadingAuth, isLoggedIn, router]);
+  }, [isLoadingAuth, isLoggedIn, router]); // Dependensi sudah benar
 
-  // Tampilkan loading atau null jika auth belum siap atau belum login
+  // Tampilkan loading jika auth belum siap atau jika belum login (redirect sedang diproses)
   if (isLoadingAuth || !isLoggedIn) {
-     // Atau tampilkan skeleton loading yang lebih baik
      return <div className="flex justify-center items-center min-h-screen">Memuat...</div>;
   }
 
-
-  // Pastikan hanya ada SATU <aside> dan SATU div 'Main Content'
+  // Jika sudah login, tampilkan layout dashboard
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar (Hanya SATU kali) */}
+      {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 border-r bg-white flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b">
+        {/* ... (konten sidebar) ... */}
+         <div className="h-16 flex items-center px-6 border-b">
           <Link href="/dashboard" className="text-xl font-bold text-primary">
             E-POSYANDU
           </Link>
@@ -86,17 +82,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main Content (Hanya SATU kali) */}
+      {/* Main Content */}
       <div className="flex-1 bg-gray-50">
         <header className="h-16 flex items-center px-8 border-b bg-white">
-          <div>
+          {/* ... (konten header) ... */}
+           <div>
             <h1 className="text-xl font-semibold">Dasbor Kader Posyandu</h1>
             <p className="text-sm text-gray-500">Selamat datang kembali!</p>
           </div>
         </header>
         <main className="p-8">
-          {/* Children (konten dari page atau layout di bawahnya) akan dirender di sini */}
-          {children}
+          {children} {/* Konten halaman spesifik (misal: /dashboard, /registrasi-wali, dll.) */}
         </main>
       </div>
     </div>
