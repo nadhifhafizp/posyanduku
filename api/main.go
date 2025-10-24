@@ -26,13 +26,12 @@ func main() {
 
 	// --- Setup CORS ---
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"}, // Sesuaikan dengan URL frontend Anda
+		AllowOrigins:     []string{"https://posyanduku.vercel.app"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-
 	// --- Rute Publik ---
 	router.POST("/api/login", handlers.LoginHandler(dbpool))
 	// Rute registrasi kader bisa publik atau dipindah ke grup 'authenticated' jika perlu login
