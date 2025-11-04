@@ -79,13 +79,13 @@ export default function DataKaderPage() {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
 
-  const BASE_API_URL = '/api/kader';
+  const API_URL_KADER = 'http://localhost:8080/api/kader';
 
   // --- Fungsi Fetch Kader ---
   const fetchKader = useCallback(async (query: string = '') => {
     setIsFetching(true);
     setError(''); // Bersihkan error utama saat fetch
-    let url = BASE_API_URL;
+    let url = API_URL_KADER;
     if (query) {
       url += `?search=${encodeURIComponent(query)}`;
     }
@@ -152,7 +152,7 @@ export default function DataKaderPage() {
     try {
       // Gunakan fetchWithAuth JIKA endpoint POST /kader perlu login
       // Jika registrasi kader bisa publik, gunakan fetch biasa
-      const response = await fetchWithAuth(BASE_API_URL, { // Ganti ke fetch biasa jika publik
+      const response = await fetchWithAuth(API_URL_KADER, { // Ganti ke fetch biasa jika publik
         method: 'POST',
         // headers sudah dihandle fetchWithAuth
         body: JSON.stringify(registerFormData),
@@ -197,7 +197,7 @@ export default function DataKaderPage() {
     setError('');
     try {
       // Gunakan fetchWithAuth untuk PUT
-      const response = await fetchWithAuth(`${BASE_API_URL}/${editingKader.id}`, {
+      const response = await fetchWithAuth(`${API_URL_KADER}/${editingKader.id}`, {
         method: 'PUT',
         body: JSON.stringify(editFormData),
       });
@@ -222,7 +222,7 @@ export default function DataKaderPage() {
     setSuccess('');
     try {
       // Gunakan fetchWithAuth untuk DELETE
-      const response = await fetchWithAuth(`${BASE_API_URL}/${id}`, {
+      const response = await fetchWithAuth(`${API_URL_KADER}/${id}`, {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -259,7 +259,7 @@ export default function DataKaderPage() {
     setPasswordSuccess('');
     try {
        // Gunakan fetchWithAuth untuk PUT password
-      const response = await fetchWithAuth(`${BASE_API_URL}/${changingPasswordKaderId}/password`, {
+      const response = await fetchWithAuth(`${API_URL_KADER}/${changingPasswordKaderId}/password`, {
         method: 'PUT',
         body: JSON.stringify(passwordData),
       });

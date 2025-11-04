@@ -74,8 +74,8 @@ export default function DataAnakPage() {
   const [editingAnak, setEditingAnak] = useState<Anak | null>(null);
   const [editFormData, setEditFormData] = useState<AnakFormData>({ id_ibu: '', nama_anak: '', nik_anak: '', tanggal_lahir: '', jenis_kelamin: '', anak_ke: '', berat_lahir_kg: '', tinggi_lahir_cm: '' });
 
-  const API_URL_ANAK   = '/api/anak';
-  const API_URL_IBU = '/api/ibu'; // URL API Ibu benar
+  const API_URL_ANAK   = 'http://localhost:8080/api/anak';
+  const API_URL_IBU = 'http://localhost:8080/api/ibu'; 
 
   // --- Fungsi Fetch Ibu (Dropdown) ---
   const fetchIbuOptions = useCallback(async () => {

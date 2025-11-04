@@ -74,8 +74,8 @@ export default function MasterImunisasiPage() { // <-- Ubah Nama Komponen
   const [editFormData, setEditFormData] = useState<MasterImunisasiFormData>({ nama_imunisasi: '', usia_ideal_bulan: '', deskripsi: '' });
 
   // URL API BARU
-  const API_URL_MASTER_IMUNISASI = '/api/master-imunisasi';
-
+  const API_URL_MASTER_IMUNISASI = 'http://localhost:8080/api/master-imunisasi';
+  
   // --- Fetch Master Imunisasi BARU ---
   const fetchMasterImunisasi = useCallback(async (query: string = '') => { // <-- Ganti nama fungsi
     setIsFetching(true);

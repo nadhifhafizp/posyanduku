@@ -92,8 +92,8 @@ export default function DataPerkembanganPage() {
       id_anak: '', tanggal_pemeriksaan: '', bb_kg: '', tb_cm: '', lk_cm: '', ll_cm: '', status_gizi: '', saran: ''
   });
 
-  const API_URL_PERKEMBANGAN = '/api/perkembangan';
-  const API_URL_ANAK_SIMPLE = '/api/anak/simple';
+  const API_URL_PERKEMBANGAN = 'http://localhost:8080/api/perkembangan';
+  const API_URL_ANAK_SIMPLE = 'http://localhost:8080/api/anak/simple';
 
   // --- Fungsi Fetch Anak Simple (Dropdown) ---
   const fetchAnakOptions = useCallback(async () => {

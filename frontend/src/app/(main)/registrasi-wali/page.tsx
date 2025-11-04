@@ -59,13 +59,12 @@ export default function DataIbuPage() {
   const [editingIbu, setEditingIbu] = useState<Ibu | null>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({ nama_lengkap: '', nik: '', no_telepon: '', alamat: '' });
 
-  const BASE_API_URL = '/api/ibu';
-
+  const API_URL_WALI = 'http://localhost:8080/api/ibu';
   // --- Fungsi Fetch Ibu ---
   const fetchIbu = useCallback(async (query: string = '') => {
     setIsFetching(true);
     setError('');
-    let url = BASE_API_URL;
+    let url = API_URL_WALI;
     if (query) { url += `?search=${encodeURIComponent(query)}`; }
     try {
       const response = await fetchWithAuth(url);
@@ -121,7 +120,7 @@ export default function DataIbuPage() {
         return;
     }
     try {
-      const response = await fetchWithAuth(BASE_API_URL, { method: 'POST', body: JSON.stringify({ ...formData }) }); // Backend ambil kaderId dari token
+      const response = await fetchWithAuth(API_URL_WALI, { method: 'POST', body: JSON.stringify({ ...formData }) }); // Backend ambil kaderId dari token
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menambahkan data.');
       setSuccess('Data Wali berhasil ditambahkan!'); setFormData({ nama_lengkap: '', nik: '', no_telepon: '', alamat: '' }); fetchIbu(searchQuery);
@@ -143,7 +142,7 @@ export default function DataIbuPage() {
         return;
     }
     try {
-      const response = await fetchWithAuth(`${BASE_API_URL}/${editingIbu.id}`, { method: 'PUT', body: JSON.stringify(editFormData) });
+      const response = await fetchWithAuth(`${API_URL_WALI}/${editingIbu.id}`, { method: 'PUT', body: JSON.stringify(editFormData) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal memperbarui data.');
       setSuccess('Data Wali berhasil diperbarui!'); setIsModalOpen(false); fetchIbu(searchQuery);
@@ -157,7 +156,7 @@ export default function DataIbuPage() {
   const handleDelete = async (id: number) => {
     if (!confirm('Anda yakin ingin menghapus data wali ini?')) return; setIsLoading(true); setError(''); setSuccess(''); // Tambah setIsLoading
     try {
-      const response = await fetchWithAuth(`${BASE_API_URL}/${id}`, { method: 'DELETE' });
+      const response = await fetchWithAuth(`${API_URL_WALI}/${id}`, { method: 'DELETE' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Gagal menghapus data.');
       setSuccess('Data Wali berhasil dihapus!'); fetchIbu(searchQuery);

@@ -27,7 +27,7 @@ func main() {
 
 	// --- Setup CORS ---
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://posyanduku.vercel.app", "http://localhost:3000"},
+		AllowOrigins:     []string{"http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
@@ -93,6 +93,10 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080" // Default port
+	}
+	log.Printf("Server starting on http://localhost:%s...", port)
+	if err := router.Run(":" + port); err != nil {
+		log.Fatalf("Server failed to run: %v", err)
 	}
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
