@@ -3,11 +3,13 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link'; // <-- 1. Pastikan Link di-import
 import Image from 'next/image';
 import logoPosyandu from '@/img/posyanduku.png';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
+  // ... (kode state dan handler login TETAP SAMA seperti sebelumnya) ...
   const router = useRouter();
   const { login } = useAuth();
   const [username, setUsername] = useState('');
@@ -22,10 +24,10 @@ export default function LoginPage() {
 
     try {
       const response = await fetch('http://localhost:8080/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
 
       const data = await response.json();
 
@@ -40,12 +42,12 @@ export default function LoginPage() {
         throw new Error("Token atau data user tidak lengkap dari server.");
       }
 
-    } catch (err) { // <-- Perbaikan: Gunakan catch(err)
+    } catch (err) {
       let message = 'Terjadi kesalahan tidak dikenal';
-      if (err instanceof Error) { // <-- Tambahkan type guard
+      if (err instanceof Error) {
         message = err.message;
       }
-      setError(message); // <-- Set error di sini
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -77,11 +79,8 @@ export default function LoginPage() {
           <p className="text-gray-500 mt-2 mb-8">Silakan masuk untuk melanjutkan</p>
 
           <form onSubmit={handleSubmit}>
-            {/* Input Username */}
             <div className="mb-6">
-              <label htmlFor="username" className="block mb-2 font-medium text-gray-700">
-                Username Kader
-              </label>
+              <label htmlFor="username" className="block mb-2 font-medium text-gray-700">Username Kader</label>
               <input
                 type="text"
                 id="username"
@@ -92,11 +91,8 @@ export default function LoginPage() {
                 required
               />
             </div>
-            {/* Input password */}
             <div className="mb-6">
-              <label htmlFor="password" className="block mb-2 font-medium text-gray-700">
-                Password
-              </label>
+              <label htmlFor="password" className="block mb-2 font-medium text-gray-700">Password</label>
               <input
                 type="password"
                 id="password"
@@ -116,6 +112,17 @@ export default function LoginPage() {
               {isLoading ? 'Memproses...' : 'Masuk'}
             </button>
           </form>
+
+          {/* --- TAMBAHAN: Link ke Page Publik --- */}
+          <div className="mt-6 text-center pt-4 border-t border-gray-100">
+            <p className="text-sm text-gray-600 mb-2">Ibu atau Wali?</p>
+            <Link href="/cek-perkembangan">
+              <span className="inline-block w-full py-3 px-4 bg-cyan-50 text-cyan-800 rounded-lg font-semibold text-sm hover:bg-cyan-100 transition-colors cursor-pointer border border-cyan-200">
+                Cek Perkembangan Anak Di Sini
+              </span>
+            </Link>
+          </div>
+
         </div>
       </div>
     </div>
