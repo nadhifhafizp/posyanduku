@@ -81,6 +81,7 @@ type Anak struct {
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at"`
 	NamaIbu       *string    `json:"nama_ibu,omitempty"`
+	NikIbu        *string    `json:"nik_ibu,omitempty"`
 }
 type TambahAnakPayload struct {
 	IdIbu         int      `json:"id_ibu" binding:"required"`

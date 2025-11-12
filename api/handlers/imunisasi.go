@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -275,6 +276,8 @@ func GetRiwayatImunisasiHandler(dbpool *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var daftarRiwayat []models.RiwayatImunisasi
 		searchQuery := c.Query("search")
+		idAnakQuery := c.Query("id_anak") // <-- TAMBAHAN BARU
+
 		baseQuery := `
             SELECT
                 r.id, r.id_anak, r.id_master_imunisasi, r.id_kader_pencatat, r.id_kader_updater,
@@ -288,16 +291,37 @@ func GetRiwayatImunisasiHandler(dbpool *pgxpool.Pool) gin.HandlerFunc {
             JOIN master_imunisasi m ON r.id_master_imunisasi = m.id
             LEFT JOIN kader kp ON r.id_kader_pencatat = kp.id
             LEFT JOIN kader ku ON r.id_kader_updater = ku.id`
+
 		var args []interface{}
+		var conditions []string // <-- TAMBAHAN BARU
+		argCounter := 1         // <-- TAMBAHAN BARU
 		query := baseQuery
 
 		if searchQuery != "" {
-			query += " WHERE a.nama_anak ILIKE $1 OR a.nik_anak ILIKE $1 OR m.nama_imunisasi ILIKE $1"
+			conditions = append(conditions, fmt.Sprintf("(a.nama_anak ILIKE $%d OR a.nik_anak ILIKE $%d OR m.nama_imunisasi ILIKE $%d)", argCounter, argCounter, argCounter))
 			args = append(args, fmt.Sprintf("%%%s%%", searchQuery))
+			argCounter++
 		}
+
+		// <-- BLOK TAMBAHAN BARU ---
+		if idAnakQuery != "" {
+			idAnak, err := strconv.Atoi(idAnakQuery)
+			if err == nil && idAnak > 0 {
+				conditions = append(conditions, fmt.Sprintf("r.id_anak = $%d", argCounter))
+				args = append(args, idAnak)
+				argCounter++
+			}
+		}
+		// --- END BLOK TAMBAHAN ---
+
+		if len(conditions) > 0 {
+			query += " WHERE " + strings.Join(conditions, " AND ")
+		}
+
 		query += " ORDER BY r.tanggal_imunisasi DESC, a.nama_anak ASC"
 
 		rows, err := dbpool.Query(context.Background(), query, args...)
+		// ... (sisa fungsi tetap sama) ...
 		if err != nil {
 			log.Printf("ERROR querying riwayat_imunisasi: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data."})

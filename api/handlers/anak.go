@@ -66,12 +66,14 @@ func GetAnakHandler(dbpool *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var daftarAnak []models.Anak
 		searchQuery := c.Query("search")
+		// Pastikan JOIN ke ibu sudah ada
 		baseQuery := `SELECT a.id, a.id_ibu, a.nama_anak, a.nik_anak, a.tanggal_lahir, a.jenis_kelamin, a.anak_ke, a.berat_lahir_kg, a.tinggi_lahir_cm, a.created_at, a.updated_at, i.nama_lengkap AS nama_ibu FROM anak a LEFT JOIN ibu i ON a.id_ibu = i.id`
 		var args []interface{}
 		query := baseQuery
 
 		if searchQuery != "" {
-			query += " WHERE a.nama_anak ILIKE $1 OR a.nik_anak ILIKE $1 OR i.nama_lengkap ILIKE $1"
+			// Tambahkan i.nik ILIKE $1 ke pencarian
+			query += " WHERE a.nama_anak ILIKE $1 OR a.nik_anak ILIKE $1 OR i.nama_lengkap ILIKE $1 OR i.nik ILIKE $1"
 			args = append(args, fmt.Sprintf("%%%s%%", searchQuery))
 		}
 		query += " ORDER BY a.nama_anak ASC"
@@ -86,6 +88,7 @@ func GetAnakHandler(dbpool *pgxpool.Pool) gin.HandlerFunc {
 
 		for rows.Next() {
 			var a models.Anak
+			// Scan tetap sama, karena kita tidak menambahkan nik_ibu di list
 			if err := rows.Scan(&a.ID, &a.IdIbu, &a.NamaAnak, &a.NikAnak, &a.TanggalLahir, &a.JenisKelamin, &a.AnakKe, &a.BeratLahirKg, &a.TinggiLahirCm, &a.CreatedAt, &a.UpdatedAt, &a.NamaIbu); err != nil {
 				log.Printf("ERROR scanning anak row (all): %v", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memindai data anak."})
@@ -146,9 +149,11 @@ func GetAnakByIdHandler(dbpool *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		var anak models.Anak
-		query := `SELECT a.id, a.id_ibu, a.nama_anak, a.nik_anak, a.tanggal_lahir, a.jenis_kelamin, a.anak_ke, a.berat_lahir_kg, a.tinggi_lahir_cm, a.created_at, a.updated_at, i.nama_lengkap AS nama_ibu FROM anak a LEFT JOIN ibu i ON a.id_ibu = i.id WHERE a.id = $1`
+		// Perbarui query untuk menyertakan i.nik AS nik_ibu
+		query := `SELECT a.id, a.id_ibu, a.nama_anak, a.nik_anak, a.tanggal_lahir, a.jenis_kelamin, a.anak_ke, a.berat_lahir_kg, a.tinggi_lahir_cm, a.created_at, a.updated_at, i.nama_lengkap AS nama_ibu, i.nik AS nik_ibu FROM anak a LEFT JOIN ibu i ON a.id_ibu = i.id WHERE a.id = $1`
 		err = dbpool.QueryRow(context.Background(), query, id).
-			Scan(&anak.ID, &anak.IdIbu, &anak.NamaAnak, &anak.NikAnak, &anak.TanggalLahir, &anak.JenisKelamin, &anak.AnakKe, &anak.BeratLahirKg, &anak.TinggiLahirCm, &anak.CreatedAt, &anak.UpdatedAt, &anak.NamaIbu)
+			// Perbarui Scan untuk menyertakan &anak.NikIbu
+			Scan(&anak.ID, &anak.IdIbu, &anak.NamaAnak, &anak.NikAnak, &anak.TanggalLahir, &anak.JenisKelamin, &anak.AnakKe, &anak.BeratLahirKg, &anak.TinggiLahirCm, &anak.CreatedAt, &anak.UpdatedAt, &anak.NamaIbu, &anak.NikIbu)
 
 		if err != nil {
 			if err.Error() == "no rows in result set" {

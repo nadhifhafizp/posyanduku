@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -61,17 +62,40 @@ func GetPerkembanganHandler(dbpool *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var daftarPerkembangan []models.Perkembangan
 		searchQuery := c.Query("search")
+		idAnakQuery := c.Query("id_anak") // <-- TAMBAHAN BARU
+
 		baseQuery := `SELECT p.id, p.id_anak, p.tanggal_pemeriksaan, p.bb_kg, p.tb_cm, p.lk_cm, p.ll_cm, p.status_gizi, p.saran, p.id_kader_pencatat, p.created_at, p.updated_at, a.nama_anak, k.nama_lengkap AS nama_kader, a.nik_anak, i.nama_lengkap AS nama_ibu FROM perkembangan p JOIN anak a ON p.id_anak = a.id JOIN ibu i ON a.id_ibu = i.id LEFT JOIN kader k ON p.id_kader_pencatat = k.id`
+
 		var args []interface{}
+		var conditions []string // <-- TAMBAHAN BARU
+		argCounter := 1         // <-- TAMBAHAN BARU
 		query := baseQuery
 
 		if searchQuery != "" {
-			query += " WHERE a.nama_anak ILIKE $1 OR a.nik_anak ILIKE $1 OR k.nama_lengkap ILIKE $1 OR i.nama_lengkap ILIKE $1"
+			conditions = append(conditions, fmt.Sprintf("(a.nama_anak ILIKE $%d OR a.nik_anak ILIKE $%d OR k.nama_lengkap ILIKE $%d OR i.nama_lengkap ILIKE $%d)", argCounter, argCounter, argCounter, argCounter))
 			args = append(args, fmt.Sprintf("%%%s%%", searchQuery))
+			argCounter++
 		}
+
+		// <-- BLOK TAMBAHAN BARU ---
+		if idAnakQuery != "" {
+			idAnak, err := strconv.Atoi(idAnakQuery)
+			if err == nil && idAnak > 0 {
+				conditions = append(conditions, fmt.Sprintf("p.id_anak = $%d", argCounter))
+				args = append(args, idAnak)
+				argCounter++
+			}
+		}
+		// --- END BLOK TAMBAHAN ---
+
+		if len(conditions) > 0 {
+			query += " WHERE " + strings.Join(conditions, " AND ")
+		}
+
 		query += " ORDER BY p.tanggal_pemeriksaan DESC, a.nama_anak ASC" // Urutan lebih baik
 
 		rows, err := dbpool.Query(context.Background(), query, args...)
+		// ... (sisa fungsi tetap sama) ...
 		if err != nil {
 			log.Printf("ERROR querying perkembangan: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data perkembangan."})
